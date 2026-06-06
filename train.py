@@ -31,21 +31,24 @@ def get_cifar100(data_dir='./data', batch_size=128, num_workers=2):
                              (0.2675, 0.2565, 0.2761)),
     ])
     
-    try:
-        train_set = datasets.CIFAR100(
-            root=data_dir, train=True, download=True, transform=transform
-        )
-        test_set = datasets.CIFAR100(
-            root=data_dir, train=False, download=True, transform=transform
-        )
-    except Exception:
-        # If download fails (e.g., China network), try local
-        print(f"  Download failed. If you have CIFAR-100 locally, place it at:")
-        print(f"    {data_dir}/cifar-100-python/")
-        print(f"  Or manually download from: https://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz")
-        print(f"  Extract to: {data_dir}/")
-        print(f"  Then re-run with --data-dir {data_dir}")
-        raise
+    # Try local first (no download), then fall back to download
+    for download in [False, True]:
+        try:
+            train_set = datasets.CIFAR100(
+                root=data_dir, train=True, download=download, transform=transform
+            )
+            test_set = datasets.CIFAR100(
+                root=data_dir, train=False, download=download, transform=transform
+            )
+            break
+        except RuntimeError as e:
+            if download:
+                raise RuntimeError(
+                    f"CIFAR-100 not found at {data_dir}. "
+                    f"Download from https://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz "
+                    f"and extract to {data_dir}/cifar-100-python/"
+                ) from e
+            continue
     
     train_loader = DataLoader(train_set, batch_size=batch_size, 
                                shuffle=True, num_workers=num_workers, pin_memory=True)
