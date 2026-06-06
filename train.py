@@ -23,20 +23,29 @@ from pathlib import Path
 from pcn import make_model
 
 
-def get_cifar100(batch_size=128, num_workers=2):
-    """Load CIFAR-100 with standard preprocessing."""
+def get_cifar100(data_dir='./data', batch_size=128, num_workers=2):
+    """Load CIFAR-100. Set data_dir to pre-downloaded path if network blocked."""
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.5071, 0.4867, 0.4408),
                              (0.2675, 0.2565, 0.2761)),
     ])
     
-    train_set = datasets.CIFAR100(
-        root='/tmp/cifar100', train=True, download=True, transform=transform
-    )
-    test_set = datasets.CIFAR100(
-        root='/tmp/cifar100', train=False, download=True, transform=transform
-    )
+    try:
+        train_set = datasets.CIFAR100(
+            root=data_dir, train=True, download=True, transform=transform
+        )
+        test_set = datasets.CIFAR100(
+            root=data_dir, train=False, download=True, transform=transform
+        )
+    except Exception:
+        # If download fails (e.g., China network), try local
+        print(f"  Download failed. If you have CIFAR-100 locally, place it at:")
+        print(f"    {data_dir}/cifar-100-python/")
+        print(f"  Or manually download from: https://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz")
+        print(f"  Extract to: {data_dir}/")
+        print(f"  Then re-run with --data-dir {data_dir}")
+        raise
     
     train_loader = DataLoader(train_set, batch_size=batch_size, 
                                shuffle=True, num_workers=num_workers, pin_memory=True)
@@ -85,14 +94,14 @@ def evaluate(model, loader, criterion, device):
     return total_loss / total, correct / total
 
 
-def run_experiment(mode: str, device, epochs=30, n_iter=6):
+def run_experiment(mode: str, device, data_dir: str = './data', epochs=30, n_iter=6):
     """Run one ablation variant."""
     print(f"\n{'='*60}")
     print(f"  PC-S³ Phase 1a: mode = {mode.upper()}")
     print(f"{'='*60}")
     
     model = make_model(mode=mode, n_iter=n_iter).to(device)
-    train_loader, test_loader = get_cifar100()
+    train_loader, test_loader = get_cifar100(data_dir=data_dir)
     
     optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.05)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
@@ -133,6 +142,8 @@ def main():
     parser.add_argument('--epochs', type=int, default=30)
     parser.add_argument('--n-iter', type=int, default=6,
                         help='PCN inference iterations (lower = faster)')
+    parser.add_argument('--data-dir', type=str, default='./data',
+                        help='CIFAR-100 download/cache directory')
     args = parser.parse_args()
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -142,7 +153,8 @@ def main():
     
     all_results = {}
     for mode in modes:
-        results = run_experiment(mode, device, epochs=args.epochs, n_iter=args.n_iter)
+        results = run_experiment(mode, device, data_dir=args.data_dir, 
+                                  epochs=args.epochs, n_iter=args.n_iter)
         all_results[mode] = results
     
     # Save results
