@@ -143,37 +143,39 @@ class SelectiveSSM(nn.Module):
 
 def selective_scan(u, A_bar, B_bar, C):
     """
-    Parallel associative scan for selective SSM.
-    
+    Parallel scan for selective SSM (log-space cumsum trick).
+    O(log N) fully vectorized — no Python for-loop.
+
+    Recurrence: h_t = A_bar[t] * h_{t-1} + B_bar[t] * u[t]
+
+    Solved as:
+        logA_cum = cumsum(log(A_bar))
+        h = exp(logA_cum) * cumsum(B_bar*u / exp(logA_cum))
+
     Args:
         u: (B, L, D) input
-        A_bar: (B, L, D, d_state) discretized A
+        A_bar: (B, L, D, d_state) discretized A ∈ (0, 1)
         B_bar: (B, L, D, d_state) discretized B * Δ
         C: (B, L, D, d_state) output projection
     Returns:
         y: (B, L, D)
     """
-    B, L, D, N = A_bar.shape
-    
-    # Reshape for scan: (B, D, L, N)
-    A_bar = rearrange(A_bar, 'b l d n -> b d l n')
-    B_bar = rearrange(B_bar, 'b l d n -> b d l n')
+    # → (B, D, L, N)
+    A = rearrange(A_bar, 'b l d n -> b d l n')
+    Bx = rearrange(B_bar * u.unsqueeze(-1), 'b l d n -> b d l n')
     C = rearrange(C, 'b l d n -> b d l n')
-    u = rearrange(u, 'b l d -> b d l 1')
-    
-    # Sequential scan (O(L), but simple and correct for prototype)
-    # For production, use pscan / selective_scan_ref from mamba repo
-    h = torch.zeros(B, D, N, device=u.device, dtype=u.dtype)
-    outputs = []
-    
-    for t in range(L):
-        h = A_bar[:, :, t] * h + B_bar[:, :, t] * u[:, :, t]
-        y_t = (h * C[:, :, t]).sum(dim=-1)  # (B, D)
-        outputs.append(y_t)
-    
-    y = torch.stack(outputs, dim=-1)  # (B, D, L)
-    y = rearrange(y, 'b d l -> b l d')
-    
+
+    # Log-space cumulative product of A
+    A_log = torch.log(A.clamp(min=1e-7))          # (B, D, L, N)
+    A_log_cum = torch.cumsum(A_log, dim=2)         # (B, D, L, N)
+    A_cum = torch.exp(A_log_cum)                    # cumulative product
+
+    # h = A_cum * cumsum(Bx / A_cum)
+    h = A_cum * torch.cumsum(Bx / A_cum.clamp(min=1e-7), dim=2)
+
+    # y = h · C
+    y = (h * C).sum(dim=-1)                         # (B, D, L)
+    y = rearrange(y, 'b d l -> b l d')              # (B, L, D)
     return y
 
 
