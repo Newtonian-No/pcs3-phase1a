@@ -178,7 +178,7 @@ def run_experiment(mode: str, device, data_dir: str = './data',
 # Main
 # ═══════════════════════════════════════════════════════════════
 
-PHASE1A_MODES = ['vanilla', 'concat', 'delta', 'B', 'C']
+PHASE1A_MODES = ['vanilla', 'concat', 'concat_shuffled', 'delta', 'B', 'C']
 PHASE1B_MODES = ['dual_gate', 'dual_stream', 'combo']
 ALL_MODES = PHASE1A_MODES + PHASE1B_MODES
 

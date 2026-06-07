@@ -23,7 +23,8 @@ import matplotlib.pyplot as plt
 
 COLORS = {
     'vanilla':     '#1f77b4',
-    'concat':      '#d62728',
+    'concat':      '#d62728',  # red
+    'concat_shuffled': '#ff9896',  # light red (control)
     'delta':       '#2ca02c',
     'B':           '#ff7f0e',
     'C':           '#9467bd',
