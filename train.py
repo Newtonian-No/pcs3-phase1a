@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 """
-PC-S³ Phase 1b: 8-way Ablation on CIFAR-100
-============================================
+PC-S³ Phase 1b: Patch-based SSM Ablation on CIFAR-100
+=======================================================
+ViT-style patch embedding → 64-token sequences → Mamba can actually scan.
 
-Phase 1a variants (original):  vanilla / concat / delta / B / C
-Phase 1b variants (v2):       dual_gate / dual_stream / combo
+Phase 1a variants:  vanilla / concat / delta / B / C
+Phase 1b variants:  dual_gate / dual_stream / combo
 
 Usage:
     python train.py                      # run all 8 variants
     python train.py --mode dual_gate     # run single v2 variant
-    python train.py --mode vanilla       # run single phase1a variant
     python train.py --epochs 10 --quick  # quick sanity check (10 epochs)
 """
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
@@ -75,34 +74,19 @@ V2_MODES = {"dual_gate", "dual_stream", "combo"}
 def train_epoch(model, loader, optimizer, criterion, device,
                 grad_clip: float = 1.0, mode: str = "vanilla"):
     model.train()
-    total_loss, total_ce, total_pred, total_contrast = 0, 0, 0, 0
-    correct, total = 0, 0
+    total_loss, correct, total = 0, 0, 0
 
     for x, y in loader:
         x, y = x.to(device), y.to(device)
-
         optimizer.zero_grad()
-
-        if mode in V2_MODES:
-            # V2 models may return aux info; for now just logits
-            logits = model(x)
-            ce_loss = criterion(logits, y)
-
-            # Optional: prediction loss (future hook)
-            loss = ce_loss
-        else:
-            x_flat = x.flatten(1)
-            logits = model(x_flat)
-            ce_loss = criterion(logits, y)
-            loss = ce_loss
-
+        logits = model(x)
+        loss = criterion(logits, y)
         loss.backward()
         if grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
         optimizer.step()
 
         total_loss += loss.item() * x.size(0)
-        total_ce += ce_loss.item() * x.size(0)
         correct += (logits.argmax(1) == y).sum().item()
         total += x.size(0)
 
@@ -116,11 +100,7 @@ def evaluate(model, loader, criterion, device, mode: str = "vanilla"):
 
     for x, y in loader:
         x, y = x.to(device), y.to(device)
-
-        if mode in V2_MODES:
-            logits = model(x)
-        else:
-            logits = model(x.flatten(1))
+        logits = model(x)
 
         loss = criterion(logits, y)
 
