@@ -2,42 +2,42 @@
 """
 Plot loss and accuracy curves from PC-S³ experiment results.
 Auto-detects available modes and latest results file.
+Automatically saves to figure/ — no manual click needed.
 
 Usage:
     python loss.py                          # auto-find latest results
     python loss.py results/quick_xxx.json   # specify file
-    python loss.py --latest                 # force latest file
 """
 
 import json
-import sys
 import argparse
+import time
 from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')  # non-interactive — no GUI needed
 import matplotlib.pyplot as plt
 
 # ═══════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════
 
-# Distinct colors for up to 8 modes
 COLORS = {
-    'vanilla':     '#1f77b4',  # blue
-    'concat':      '#d62728',  # red
-    'delta':       '#2ca02c',  # green
-    'B':           '#ff7f0e',  # orange
-    'C':           '#9467bd',  # purple
-    'dual_gate':   '#8c564b',  # brown
-    'dual_stream': '#e377c2',  # pink
-    'combo':       '#17becf',  # cyan
+    'vanilla':     '#1f77b4',
+    'concat':      '#d62728',
+    'delta':       '#2ca02c',
+    'B':           '#ff7f0e',
+    'C':           '#9467bd',
+    'dual_gate':   '#8c564b',
+    'dual_stream': '#e377c2',
+    'combo':       '#17becf',
 }
 FALLBACK_COLORS = plt.cm.tab10.colors
 
 
 def find_latest_results(results_dir='results'):
-    """Find the most recent results JSON file."""
     p = Path(results_dir)
     if not p.exists():
-        raise FileNotFoundError(f"Results directory '{results_dir}' not found. Run train.py first.")
+        raise FileNotFoundError(f"'{results_dir}/' not found. Run train.py first.")
     files = sorted(p.glob('*.json'), key=lambda f: f.stat().st_mtime, reverse=True)
     if not files:
         raise FileNotFoundError(f"No JSON files in '{results_dir}/'. Run train.py first.")
@@ -45,10 +45,8 @@ def find_latest_results(results_dir='results'):
 
 
 def load_results(path):
-    """Load results JSON, return (data, filename)."""
     with open(path) as f:
-        data = json.load(f)
-    return data
+        return json.load(f)
 
 
 def get_color(mode, idx):
@@ -59,14 +57,13 @@ def get_color(mode, idx):
 # Plotting
 # ═══════════════════════════════════════════════════════════════
 
-def plot_curves(data, title=None, save_path=None):
+def plot_curves(data, title=None, save_dir='figure'):
     modes = list(data.keys())
     if not modes:
-        print("No modes found in results file.")
+        print("No modes found.")
         return
 
     print(f"Modes: {', '.join(modes)}")
-    n = len(modes)
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     if title:
@@ -82,12 +79,12 @@ def plot_curves(data, title=None, save_path=None):
         test_loss = [e['loss'] for e in rec.get('test', [])]
 
         if not epochs:
-            print(f"  ⚠ {mode}: empty train/test data, skipping")
+            print(f"  ⚠ {mode}: empty data, skipping")
             continue
 
         ax.plot(epochs, train_loss, '--', color=color, alpha=0.4, linewidth=1)
         ax.plot(epochs, test_loss, '-', color=color, linewidth=1.5,
-                label=f'{mode} (best acc={rec.get("best_acc", 0):.3f})')
+                label=f'{mode} (best={rec.get("best_acc", 0):.3f})')
 
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Loss')
@@ -113,7 +110,7 @@ def plot_curves(data, title=None, save_path=None):
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
 
-    # Add best-acc horizontal markers
+    # Best-acc markers
     for i, mode in enumerate(modes):
         best = data[mode].get('best_acc', 0)
         if best > 0:
@@ -121,13 +118,16 @@ def plot_curves(data, title=None, save_path=None):
 
     plt.tight_layout()
 
-    # Save
-    if save_path is None:
-        save_path = 'results/curves.png'
-    Path(save_path).parent.mkdir(exist_ok=True)
+    # Auto-save to figure/
+    Path(save_dir).mkdir(exist_ok=True)
+    timestamp = time.strftime('%Y%m%d_%H%M%S')
+    n_modes = len(modes)
+    tag = f"{n_modes}modes"
+    fname = f"{tag}_{timestamp}.png"
+    save_path = str(Path(save_dir) / fname)
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
-    print(f"\nSaved: {save_path}")
-    plt.show()
+    plt.close()
+    print(f"Saved: {save_path}")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -137,30 +137,19 @@ def plot_curves(data, title=None, save_path=None):
 def main():
     parser = argparse.ArgumentParser(description='Plot PC-S³ experiment curves')
     parser.add_argument('file', nargs='?', default=None,
-                        help='Results JSON file (auto-finds latest if omitted)')
-    parser.add_argument('--latest', action='store_true',
-                        help='Force use latest results file')
-    parser.add_argument('--save', type=str, default=None,
-                        help='Save path (default: results/curves.png)')
-    parser.add_argument('--title', type=str, default=None,
-                        help='Plot title')
+                        help='Results JSON (auto-finds latest if omitted)')
+    parser.add_argument('--title', type=str, default=None, help='Plot title')
     args = parser.parse_args()
 
-    # Find file
-    if args.file:
-        path = args.file
-    else:
-        path = find_latest_results()
-
+    path = args.file or find_latest_results()
     print(f"Loading: {path}")
     data = load_results(path)
 
-    # Auto-title
     fname = Path(path).stem
     tag = 'quick' if 'quick' in fname else 'full'
     title = args.title or f"PC-S³ Experiment ({tag})"
 
-    plot_curves(data, title=title, save_path=args.save)
+    plot_curves(data, title=title)
 
 
 if __name__ == '__main__':
