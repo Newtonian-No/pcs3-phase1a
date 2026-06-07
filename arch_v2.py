@@ -98,7 +98,8 @@ class DualStreamSSM(nn.Module):
 
         self.error_proj = nn.Linear(d_model, d_error)
         self.error_ssm = SelectiveSSM(d_error, d_state_err)
-        self.attn_scale = d_error ** -0.5
+        self.error_up = nn.Linear(d_error, d_model)  # project back to content dim
+        self.attn_scale = d_model ** -0.5
 
         self.classifier = nn.Sequential(
             nn.LayerNorm(d_model),
@@ -114,6 +115,7 @@ class DualStreamSSM(nn.Module):
         error = self.self_pred(h_content, x)
         error_small = self.error_proj(error)
         h_error = self.error_ssm(error_small, mode="vanilla")
+        h_error = self.error_up(h_error)  # (B, L, d_model)
 
         attn = torch.matmul(h_error, h_content.transpose(-2, -1)) * self.attn_scale
         attn = F.softmax(attn, dim=-1)
