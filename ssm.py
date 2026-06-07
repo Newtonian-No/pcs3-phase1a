@@ -197,25 +197,32 @@ class MambaBlock(nn.Module):
                 mode: str = "vanilla"):
         residual = x
         x = self.norm(x)
-        
+
+        has_seq = (x.dim() == 3)  # (B, L, D) patch mode vs (B, D) legacy
+
         # Project and split gate
-        proj = self.in_proj(x)
-        gate, value = proj.chunk(2, dim=-1)  # both (B, d_inner)
-        
-        # Add sequence dim for SSM: (B, d_inner) → (B, 1, d_inner)
-        value = value.unsqueeze(1)
-        gate = gate.unsqueeze(1)
-        
+        proj = self.in_proj(x)              # (B, D) → (B, d_inner*2) or (B, L, D) → (B, L, d_inner*2)
+        gate, value = proj.chunk(2, dim=-1)
+
+        # Ensure sequence dim: (B, d_inner) → (B, 1, d_inner)
+        if not has_seq:
+            value = value.unsqueeze(1)
+            gate = gate.unsqueeze(1)
+
         # Project error to inner dim
         if error is not None and mode != "vanilla":
-            error = self.error_proj(error)   # (B, d_model) → (B, d_inner)
-            error = error.unsqueeze(1)       # (B, 1, d_inner)
-        
+            error = self.error_proj(error)
+            if not has_seq:
+                error = error.unsqueeze(1)
+
         # SSM
-        value = self.ssm(value, error, mode)  # (B, 1, d_inner)
-        
-        # Gate + remove seq dim
-        out = value.squeeze(1) * F.silu(gate.squeeze(1))  # (B, d_inner)
-        out = self.out_proj(out)  # (B, d_model)
-        
+        value = self.ssm(value, error, mode)
+
+        # Gate + remove seq dim if added
+        if not has_seq:
+            value = value.squeeze(1)
+            gate = gate.squeeze(1)
+        out = value * F.silu(gate)
+        out = self.out_proj(out)
+
         return out + residual
