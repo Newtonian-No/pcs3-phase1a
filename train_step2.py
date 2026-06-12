@@ -69,7 +69,20 @@ def main():
     parser.add_argument('--patch_size', type=int, default=4)
     parser.add_argument('--no_conv_stem', action='store_true',
                         help='Skip ConvStem, feed raw pixels to PatchEmbed')
+    parser.add_argument('--seed', type=int, default=42,
+                        help='Random seed for reproducibility')
+    parser.add_argument('--out_dir', default='results',
+                        help='Output directory for result JSON')
     args = parser.parse_args()
+
+    # Set all seeds
+    import random, numpy as np
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Device: {device} ({torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'})")
@@ -120,10 +133,10 @@ def main():
     elapsed = time.time() - t0
     print(f"\n  Done in {elapsed/60:.1f} min. Best: {best_acc:.4f} @ epoch {best_epoch}")
 
-    out_dir = Path('results'); out_dir.mkdir(exist_ok=True)
-    out_file = out_dir / f"step2_{args.mode}_{time.strftime('%Y%m%d_%H%M%S')}.json"
+    out_dir = Path(args.out_dir); out_dir.mkdir(exist_ok=True)
+    out_file = out_dir / f"step2_{args.mode}_seed{args.seed}_{time.strftime('%Y%m%d_%H%M%S')}.json"
     with open(out_file, 'w') as f:
-        json.dump({"mode": args.mode, "best_acc": best_acc, "best_epoch": best_epoch,
+        json.dump({"mode": args.mode, "seed": args.seed, "best_acc": best_acc, "best_epoch": best_epoch,
                    "n_params": params, "time": elapsed, "history": history}, f, indent=2)
     print(f"  Saved: {out_file}")
 
