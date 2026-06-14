@@ -52,6 +52,7 @@ def main():
                 '--epochs', str(EPOCHS),
                 '--seed', str(seed),
                 '--out_dir', OUT_DIR,
+                '--ckpt_interval', '5',
             ], capture_output=False)
             elapsed = time.time() - t0
 

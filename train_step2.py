@@ -55,6 +55,59 @@ def evaluate(model, loader, criterion, device):
         total += x.size(0)
     return total_loss / total, correct / total
 
+
+def overfit_single_batch(model, x_batch, y_batch, device, steps=50, lr=1e-3):
+    """Karpathy recipe step: overfit one batch to catch silent bugs.
+    
+    If the model+data pipeline is correct, loss should drop to <0.05
+    and accuracy should hit >90% within ~50 iterations on a single batch.
+    
+    Returns: (passed, final_loss, final_acc)
+    """
+    import copy
+    x = x_batch.to(device)
+    y = y_batch.to(device)
+    
+    # Fresh optimizer for this check (don't pollute main optimizer state)
+    opt = optim.AdamW(model.parameters(), lr=lr, weight_decay=0)
+    crit = nn.CrossEntropyLoss()
+    
+    print(f"\n  ╔{'═'*56}╗")
+    print(f"  ║  OVERFIT CHECK — single batch, {steps} steps                    ║")
+    print(f"  ╚{'═'*56}╝")
+    
+    for step in range(1, steps + 1):
+        model.train()
+        opt.zero_grad()
+        logits = model(x)
+        loss = crit(logits, y)
+        loss.backward()
+        opt.step()
+        
+        if step % 10 == 0 or step == 1 or step == steps:
+            acc = (logits.argmax(1) == y).float().mean().item()
+            bar = "▓" * int(step / steps * 20)
+            print(f"  step {step:3d}/{steps} [{bar:<20s}] loss={loss.item():.4f}  acc={acc:.3f}")
+    
+    model.eval()
+    with torch.no_grad():
+        logits = model(x)
+        final_loss = crit(logits, y).item()
+        final_acc = (logits.argmax(1) == y).float().mean().item()
+    
+    passed = final_loss < 0.05 and final_acc > 0.90
+    if passed:
+        print(f"  ✅ PASS — loss {final_loss:.4f} < 0.05, acc {final_acc:.3f} > 0.90")
+    else:
+        print(f"  ❌ FAIL — loss {final_loss:.4f}, acc {final_acc:.3f}")
+        print(f"  ⚠️  Model or data pipeline likely has a bug. Check:")
+        print(f"     - Data normalization / augmentation")
+        print(f"     - Model architecture (forward pass correctness)")
+        print(f"     - Loss function and optimizer config")
+        print(f"  Continuing anyway — but results may be garbage.")
+    
+    return passed, final_loss, final_acc
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', default='vanilla')
@@ -73,6 +126,14 @@ def main():
                         help='Random seed for reproducibility')
     parser.add_argument('--out_dir', default='results',
                         help='Output directory for result JSON')
+    parser.add_argument('--ckpt_interval', type=int, default=10,
+                        help='Flush checkpoint JSON every N epochs (survives crash)')
+    parser.add_argument('--overfit_check', action='store_true', default=True,
+                        help='Overfit single batch before full training (Karpathy sanity check)')
+    parser.add_argument('--no_overfit_check', action='store_false', dest='overfit_check',
+                        help='Skip overfit sanity check')
+    parser.add_argument('--overfit_steps', type=int, default=50,
+                        help='Iterations for overfit check')
     args = parser.parse_args()
 
     # Set all seeds
@@ -110,6 +171,21 @@ def main():
     print(f"  Aug: RandAugment(N=2,M=9) + RandomErasing(0.25)")
     print(f"{'='*60}")
 
+    # Karpathy sanity check: overfit single batch before full training
+    if args.overfit_check:
+        x_batch, y_batch = next(iter(train_loader))
+        ok, _, _ = overfit_single_batch(model, x_batch, y_batch, device,
+                                         steps=args.overfit_steps)
+        if not ok:
+            print(f"\n  WARNING: Overfit check FAILED. Results may be unreliable.")
+            print(f"  To skip: --no_overfit_check")
+        # Re-init optimizer (overfit check polluted it)
+        optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+
+    out_dir = Path(args.out_dir); out_dir.mkdir(exist_ok=True)
+    ckpt_file = out_dir / f"step2_{args.mode}_seed{args.seed}.checkpoint.json"
+
     best_acc, best_epoch = 0, 0
     history = []
     t0 = time.time()
@@ -125,6 +201,13 @@ def main():
 
         history.append({"epoch": epoch, "train_loss": train_loss, "train_acc": train_acc,
                         "test_loss": test_loss, "test_acc": test_acc})
+
+        # Flush checkpoint every epoch — survives crash/power-loss
+        if epoch % args.ckpt_interval == 0 or epoch == args.epochs:
+            with open(ckpt_file, 'w') as f:
+                json.dump({"mode": args.mode, "seed": args.seed,
+                           "best_acc": best_acc, "best_epoch": best_epoch,
+                           "current_epoch": epoch, "history": history}, f)
 
         lr_now = optimizer.param_groups[0]['lr']
         marker = " ★" if test_acc == best_acc else ""
