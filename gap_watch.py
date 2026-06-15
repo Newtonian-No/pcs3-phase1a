@@ -24,16 +24,24 @@ def load_checkpoints(ckpt_dir):
     """Load all .checkpoint.json files, return {mode: {seed: {epoch: acc}}}"""
     data = defaultdict(lambda: defaultdict(dict))
     for f in sorted(Path(ckpt_dir).glob("*.checkpoint.json")):
-        d = json.loads(f.read_text())
-        mode, seed = d["mode"], d["seed"]
-        for h in d["history"]:
-            data[mode][seed][h["epoch"]] = h["test_acc"]
+        try:
+            d = json.loads(f.read_text())
+            mode, seed = d["mode"], d["seed"]
+            for h in d.get("history", []):
+                if "epoch" in h and "test_acc" in h:
+                    data[mode][seed][h["epoch"]] = h["test_acc"]
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"Warning: Skipping corrupted checkpoint {f}: {e}", file=sys.stderr)
+            continue
     return data
 
 def gap_curve(data, mode_a="concat", mode_b="vanilla"):
     """Compute per-epoch gap: concat mean - vanilla mean, per seed then average."""
-    epochs_a = set.intersection(*[set(data[mode_a][s].keys()) for s in data[mode_a]])
-    epochs_b = set.intersection(*[set(data[mode_b][s].keys()) for s in data[mode_b]])
+    if not data.get(mode_a) or not data.get(mode_b):
+        print(f"Missing mode data: need both {mode_a} and {mode_b}", file=sys.stderr)
+        return None, None
+    epochs_a = set.union(*[set(data[mode_a][s].keys()) for s in data[mode_a]])
+    epochs_b = set.union(*[set(data[mode_b][s].keys()) for s in data[mode_b]])
     epochs = sorted(epochs_a & epochs_b)
     if not epochs:
         print("No overlapping epochs between modes yet.", file=sys.stderr)
@@ -52,7 +60,10 @@ def gap_curve(data, mode_a="concat", mode_b="vanilla"):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir', default='results/stats3seed', help='Checkpoint directory')
-    parser.add_argument('--window', type=int, default=10, help='Smoothing window')
+    parser.add_argument('--window', type=int, default=10,
+                        help='Rolling window size for gap smoothing and stability detection (default: 10)')
+    parser.add_argument('--plateau_threshold', type=float, default=0.002,
+                        help='Max std of smoothed gap to consider plateaued (default: 0.002)')
     args = parser.parse_args()
 
     data = load_checkpoints(args.dir)
@@ -88,7 +99,7 @@ def main():
         trend = ""
         if len(smoothed) >= 2:
             prev = smoothed[-2][1]
-            if abs(smooth - prev) < 0.0005:
+            if abs(smooth - prev) < args.plateau_threshold:
                 trend = "⟹ PLATEAU"
             elif smooth > prev:
                 trend = "↑"
@@ -103,10 +114,12 @@ def main():
         recent_std = np.std(recent)
         print(f"\n  {'─'*50}")
         print(f"  Recent {args.window} epochs gap std: {recent_std*100:.3f}pp")
-        if recent_std < 0.0005:
+        if recent_std < args.plateau_threshold:
             print(f"  ═══ GAP STABILIZED — further epochs unlikely to change delta ═══")
             last_epoch = smoothed[-1][0]
-            print(f"  Recommendation: stop at epoch {last_epoch}, save {(300-last_epoch)/300*100:.0f}% compute")
+            max_total_epochs = max(max(data[m][s].keys()) for m in modes_found for s in data[m])
+            saved_pct = (max_total_epochs - last_epoch) / max_total_epochs * 100
+            print(f"  Recommendation: stop at epoch {last_epoch}, save {saved_pct:.0f}% compute")
         else:
             print(f"  Gap still evolving — continue monitoring")
 

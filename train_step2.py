@@ -128,10 +128,8 @@ def main():
                         help='Output directory for result JSON')
     parser.add_argument('--ckpt_interval', type=int, default=10,
                         help='Flush checkpoint JSON every N epochs (survives crash)')
-    parser.add_argument('--overfit_check', action='store_true', default=True,
-                        help='Overfit single batch before full training (Karpathy sanity check)')
-    parser.add_argument('--no_overfit_check', action='store_false', dest='overfit_check',
-                        help='Skip overfit sanity check')
+    parser.add_argument('--skip_overfit_check', action='store_true', default=False,
+                        help='Skip overfit sanity check (Karpathy)')
     parser.add_argument('--overfit_steps', type=int, default=50,
                         help='Iterations for overfit check')
     args = parser.parse_args()
@@ -172,13 +170,13 @@ def main():
     print(f"{'='*60}")
 
     # Karpathy sanity check: overfit single batch before full training
-    if args.overfit_check:
+    if not args.skip_overfit_check:
         x_batch, y_batch = next(iter(train_loader))
         ok, _, _ = overfit_single_batch(model, x_batch, y_batch, device,
                                          steps=args.overfit_steps)
         if not ok:
             print(f"\n  WARNING: Overfit check FAILED. Results may be unreliable.")
-            print(f"  To skip: --no_overfit_check")
+            print(f"  To skip: --skip_overfit_check")
         # Re-init optimizer (overfit check polluted it)
         optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
@@ -204,10 +202,12 @@ def main():
 
         # Flush checkpoint every epoch — survives crash/power-loss
         if epoch % args.ckpt_interval == 0 or epoch == args.epochs:
-            with open(ckpt_file, 'w') as f:
+            tmp = ckpt_file.with_suffix('.checkpoint.tmp')
+            with open(tmp, 'w') as f:
                 json.dump({"mode": args.mode, "seed": args.seed,
                            "best_acc": best_acc, "best_epoch": best_epoch,
                            "current_epoch": epoch, "history": history}, f)
+            tmp.rename(ckpt_file)
 
         lr_now = optimizer.param_groups[0]['lr']
         marker = " ★" if test_acc == best_acc else ""
@@ -216,7 +216,6 @@ def main():
     elapsed = time.time() - t0
     print(f"\n  Done in {elapsed/60:.1f} min. Best: {best_acc:.4f} @ epoch {best_epoch}")
 
-    out_dir = Path(args.out_dir); out_dir.mkdir(exist_ok=True)
     out_file = out_dir / f"step2_{args.mode}_seed{args.seed}_{time.strftime('%Y%m%d_%H%M%S')}.json"
     with open(out_file, 'w') as f:
         json.dump({"mode": args.mode, "seed": args.seed, "best_acc": best_acc, "best_epoch": best_epoch,
