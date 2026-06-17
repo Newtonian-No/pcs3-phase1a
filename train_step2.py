@@ -124,6 +124,8 @@ def main():
                         help='Skip ConvStem, feed raw pixels to PatchEmbed')
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed for reproducibility')
+    parser.add_argument('--data_dir', default='./data',
+                        help='Path to CIFAR-100 dataset directory')
     parser.add_argument('--out_dir', default='results',
                         help='Output directory for result JSON')
     parser.add_argument('--ckpt_interval', type=int, default=10,
@@ -146,7 +148,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Device: {device} ({torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'})")
 
-    train_loader, test_loader = get_cifar100(batch_size=args.batch_size)
+    train_loader, test_loader = get_cifar100(data_dir=args.data_dir, batch_size=args.batch_size)
 
     model = Step2Model(d_model=args.d_model, n_layers=args.n_layers,
                        patch_size=args.patch_size, mode=args.mode,
