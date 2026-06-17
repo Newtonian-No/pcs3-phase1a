@@ -47,7 +47,7 @@ def main():
 
             t0 = time.time()
             r = subprocess.run([
-                'python3', 'train_step2.py',
+                sys.executable, 'train_step2.py',
                 '--mode', mode,
                 '--epochs', str(EPOCHS),
                 '--seed', str(seed),
@@ -73,15 +73,19 @@ def main():
                 print(f"  best_acc={d['best_acc']:.4f} @ epoch {d['best_epoch']}")
 
         # Aggregate per mode
-        accs = [v["best_acc"] for v in mode_results.values()]
-        results[mode] = {
-            "seeds": mode_results,
-            "mean_acc": float(np.mean(accs)),
-            "std_acc": float(np.std(accs, ddof=1)),  # sample std
-            "min_acc": float(np.min(accs)),
-            "max_acc": float(np.max(accs)),
-            "n_seeds": len(accs),
-        }
+        if mode_results:
+            accs = [v["best_acc"] for v in mode_results.values()]
+            results[mode] = {
+                "seeds": mode_results,
+                "mean_acc": float(np.mean(accs)),
+                "std_acc": float(np.std(accs, ddof=1)),
+                "min_acc": float(np.min(accs)),
+                "max_acc": float(np.max(accs)),
+                "n_seeds": len(accs),
+            }
+        else:
+            print(f"  WARNING: no successful seeds for {mode}")
+            results[mode] = {"seeds": {}, "mean_acc": 0, "std_acc": 0, "min_acc": 0, "max_acc": 0, "n_seeds": 0, "error": "all seeds failed"}
 
     # Full summary
     total_elapsed = time.time() - t_start

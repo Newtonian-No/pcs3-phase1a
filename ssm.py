@@ -182,9 +182,10 @@ def selective_scan(u, A_bar, B_bar, C):
 class MambaBlock(nn.Module):
     """Full Mamba block with gate, residual, and layer norm."""
     
-    def __init__(self, d_model: int, d_state: int = 16, expand: int = 2):
+    def __init__(self, d_model: int, d_state: int = 16, expand: int = 2, K: int = 1):
         super().__init__()
         self.d_model = d_model
+        self.K = K
         d_inner = d_model * expand
         
         self.norm = nn.LayerNorm(d_model)
@@ -192,8 +193,9 @@ class MambaBlock(nn.Module):
         self.ssm = SelectiveSSM(d_inner, d_state)
         self.out_proj = nn.Linear(d_inner, d_model)
         
-        # Project error from d_model to d_inner for SSM modulation
-        self.error_proj = nn.Linear(d_model, d_inner, bias=False)
+        # Project error from K*d_model to d_inner for SSM modulation
+        # K=1: scalar error (vanilla/concat); K=2: (pos, vel) error (gen_error)
+        self.error_proj = nn.Linear(K * d_model, d_inner, bias=False)
         
     def forward(self, x: torch.Tensor, error: torch.Tensor = None,
                 mode: str = "vanilla"):
