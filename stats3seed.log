@@ -1,0 +1,998 @@
+============================================================
+  PC-S³ 3-Seed Statistical Validation
+  Modes: ['vanilla', 'concat', 'concat_shuffled']
+  Seeds: [42, 123, 777]
+  Epochs: 300 | Output: results/stats3seed/
+  Total runs: 9
+============================================================
+
+
+############################################################
+# [1/9] vanilla  seed=42
+############################################################
+/home/lab/miniconda3/lib/python3.13/site-packages/torchvision/datasets/cifar.py:83: VisibleDeprecationWarning: dtype(): align should be passed as Python or NumPy boolean but got `align=0`. Did you mean to pass a tuple to create a subarray type? (Deprecated NumPy 2.4)
+  entry = pickle.load(f, encoding="latin1")
+Device: cuda (NVIDIA RTX PRO 6000 Blackwell Workstation Edition)
+
+============================================================
+  PC-S³ Step 2 + Aug: VANILLA
+  Params: 6,549,572  |  d=160  L=8  patch=4
+  epochs=300  batch=128  wd=0.05
+  Aug: RandAugment(N=2,M=9) + RandomErasing(0.25)
+============================================================
+  Ep   1 | lr 6.0e-05 | train 4.3762 acc 0.049 | test 4.0925 acc 0.0866 ★
+  Ep   2 | lr 9.0e-05 | train 4.1028 acc 0.086 | test 3.8401 acc 0.1312 ★
+  Ep   3 | lr 1.2e-04 | train 3.8527 acc 0.119 | test 3.5230 acc 0.1822 ★
+  Ep   4 | lr 1.5e-04 | train 3.6007 acc 0.160 | test 3.2295 acc 0.2309 ★
+  Ep   5 | lr 1.8e-04 | train 3.3638 acc 0.200 | test 3.0057 acc 0.2747 ★
+  Ep   6 | lr 2.1e-04 | train 3.1640 acc 0.236 | test 2.7874 acc 0.3140 ★
+  Ep   7 | lr 2.4e-04 | train 2.9943 acc 0.267 | test 2.6847 acc 0.3286 ★
+  Ep   8 | lr 2.7e-04 | train 2.8507 acc 0.294 | test 2.5859 acc 0.3451 ★
+  Ep   9 | lr 3.0e-04 | train 2.7304 acc 0.316 | test 2.4233 acc 0.3801 ★
+  Ep  10 | lr 3.0e-04 | train 2.6281 acc 0.338 | test 2.2679 acc 0.4140 ★
+  Ep  11 | lr 3.0e-04 | train 2.5127 acc 0.359 | test 2.2349 acc 0.4196 ★
+  Ep  12 | lr 3.0e-04 | train 2.4126 acc 0.380 | test 2.1183 acc 0.4436 ★
+  Ep  13 | lr 3.0e-04 | train 2.3339 acc 0.397 | test 2.0814 acc 0.4525 ★
+  Ep  14 | lr 3.0e-04 | train 2.2410 acc 0.418 | test 2.0150 acc 0.4670 ★
+  Ep  15 | lr 3.0e-04 | train 2.1855 acc 0.428 | test 1.9910 acc 0.4745 ★
+  Ep  16 | lr 3.0e-04 | train 2.1115 acc 0.445 | test 1.9081 acc 0.4866 ★
+  Ep  17 | lr 3.0e-04 | train 2.0597 acc 0.456 | test 1.8383 acc 0.5050 ★
+  Ep  18 | lr 3.0e-04 | train 2.0065 acc 0.468 | test 1.7662 acc 0.5223 ★
+  Ep  19 | lr 3.0e-04 | train 1.9431 acc 0.479 | test 1.7505 acc 0.5269 ★
+  Ep  20 | lr 3.0e-04 | train 1.8989 acc 0.493 | test 1.7195 acc 0.5386 ★
+  Ep  21 | lr 3.0e-04 | train 1.8469 acc 0.504 | test 1.7156 acc 0.5330
+  Ep  22 | lr 3.0e-04 | train 1.7985 acc 0.518 | test 1.6708 acc 0.5513 ★
+  Ep  23 | lr 3.0e-04 | train 1.7575 acc 0.525 | test 1.6087 acc 0.5609 ★
+  Ep  24 | lr 3.0e-04 | train 1.7240 acc 0.531 | test 1.5983 acc 0.5688 ★
+  Ep  25 | lr 3.0e-04 | train 1.6933 acc 0.539 | test 1.6293 acc 0.5583
+  Ep  26 | lr 3.0e-04 | train 1.6578 acc 0.549 | test 1.5662 acc 0.5745 ★
+  Ep  27 | lr 3.0e-04 | train 1.6254 acc 0.558 | test 1.5412 acc 0.5809 ★
+  Ep  28 | lr 3.0e-04 | train 1.5859 acc 0.567 | test 1.5639 acc 0.5774
+  Ep  29 | lr 3.0e-04 | train 1.5524 acc 0.571 | test 1.5420 acc 0.5814 ★
+  Ep  30 | lr 3.0e-04 | train 1.5252 acc 0.580 | test 1.4987 acc 0.5910 ★
+  Ep  31 | lr 3.0e-04 | train 1.4980 acc 0.587 | test 1.4865 acc 0.5911 ★
+  Ep  32 | lr 3.0e-04 | train 1.4676 acc 0.593 | test 1.4827 acc 0.5942 ★
+  Ep  33 | lr 3.0e-04 | train 1.4372 acc 0.601 | test 1.4878 acc 0.5900
+  Ep  34 | lr 2.9e-04 | train 1.4216 acc 0.603 | test 1.4854 acc 0.5894
+  Ep  35 | lr 2.9e-04 | train 1.3901 acc 0.613 | test 1.4550 acc 0.6045 ★
+  Ep  36 | lr 2.9e-04 | train 1.3626 acc 0.621 | test 1.4618 acc 0.6018
+  Ep  37 | lr 2.9e-04 | train 1.3466 acc 0.625 | test 1.3999 acc 0.6135 ★
+  Ep  38 | lr 2.9e-04 | train 1.3189 acc 0.630 | test 1.4119 acc 0.6166 ★
+  Ep  39 | lr 2.9e-04 | train 1.2950 acc 0.636 | test 1.4310 acc 0.6090
+  Ep  40 | lr 2.9e-04 | train 1.2771 acc 0.639 | test 1.4208 acc 0.6112
+  Ep  41 | lr 2.9e-04 | train 1.2454 acc 0.648 | test 1.3908 acc 0.6168 ★
+  Ep  42 | lr 2.9e-04 | train 1.2265 acc 0.653 | test 1.3974 acc 0.6170 ★
+  Ep  43 | lr 2.9e-04 | train 1.2108 acc 0.657 | test 1.4343 acc 0.6126
+  Ep  44 | lr 2.9e-04 | train 1.1886 acc 0.662 | test 1.4006 acc 0.6152
+  Ep  45 | lr 2.9e-04 | train 1.1684 acc 0.670 | test 1.3767 acc 0.6248 ★
+  Ep  46 | lr 2.9e-04 | train 1.1531 acc 0.672 | test 1.3690 acc 0.6253 ★
+  Ep  47 | lr 2.9e-04 | train 1.1256 acc 0.678 | test 1.3932 acc 0.6196
+  Ep  48 | lr 2.9e-04 | train 1.1178 acc 0.682 | test 1.3960 acc 0.6172
+  Ep  49 | lr 2.9e-04 | train 1.0824 acc 0.690 | test 1.4068 acc 0.6217
+  Ep  50 | lr 2.9e-04 | train 1.0728 acc 0.693 | test 1.3863 acc 0.6284 ★
+  Ep  51 | lr 2.9e-04 | train 1.0606 acc 0.694 | test 1.3645 acc 0.6289 ★
+  Ep  52 | lr 2.8e-04 | train 1.0393 acc 0.701 | test 1.4124 acc 0.6213
+  Ep  53 | lr 2.8e-04 | train 1.0263 acc 0.702 | test 1.4094 acc 0.6199
+  Ep  54 | lr 2.8e-04 | train 1.0208 acc 0.707 | test 1.4138 acc 0.6222
+  Ep  55 | lr 2.8e-04 | train 1.0101 acc 0.710 | test 1.3869 acc 0.6293 ★
+  Ep  56 | lr 2.8e-04 | train 0.9891 acc 0.715 | test 1.4218 acc 0.6261
+  Ep  57 | lr 2.8e-04 | train 0.9572 acc 0.723 | test 1.3950 acc 0.6279
+  Ep  58 | lr 2.8e-04 | train 0.9506 acc 0.726 | test 1.3940 acc 0.6272
+  Ep  59 | lr 2.8e-04 | train 0.9408 acc 0.728 | test 1.3685 acc 0.6318 ★
+  Ep  60 | lr 2.8e-04 | train 0.9195 acc 0.734 | test 1.3936 acc 0.6332 ★
+  Ep  61 | lr 2.8e-04 | train 0.9068 acc 0.737 | test 1.4374 acc 0.6237
+  Ep  62 | lr 2.8e-04 | train 0.8975 acc 0.740 | test 1.4400 acc 0.6270
+  Ep  63 | lr 2.8e-04 | train 0.8754 acc 0.746 | test 1.3769 acc 0.6384 ★
+  Ep  64 | lr 2.8e-04 | train 0.8641 acc 0.748 | test 1.3871 acc 0.6321
+  Ep  65 | lr 2.7e-04 | train 0.8516 acc 0.753 | test 1.3951 acc 0.6360
+  Ep  66 | lr 2.7e-04 | train 0.8499 acc 0.752 | test 1.3949 acc 0.6371
+  Ep  67 | lr 2.7e-04 | train 0.8315 acc 0.757 | test 1.4153 acc 0.6354
+  Ep  68 | lr 2.7e-04 | train 0.8321 acc 0.759 | test 1.4096 acc 0.6376
+  Ep  69 | lr 2.7e-04 | train 0.7983 acc 0.768 | test 1.4275 acc 0.6345
+  Ep  70 | lr 2.7e-04 | train 0.8043 acc 0.767 | test 1.3981 acc 0.6421 ★
+  Ep  71 | lr 2.7e-04 | train 0.7974 acc 0.767 | test 1.4248 acc 0.6387
+  Ep  72 | lr 2.7e-04 | train 0.7647 acc 0.777 | test 1.4469 acc 0.6286
+  Ep  73 | lr 2.7e-04 | train 0.7724 acc 0.776 | test 1.3973 acc 0.6410
+  Ep  74 | lr 2.7e-04 | train 0.7460 acc 0.782 | test 1.4183 acc 0.6377
+  Ep  75 | lr 2.6e-04 | train 0.7432 acc 0.783 | test 1.4450 acc 0.6314
+  Ep  76 | lr 2.6e-04 | train 0.7403 acc 0.784 | test 1.4357 acc 0.6381
+  Ep  77 | lr 2.6e-04 | train 0.7273 acc 0.788 | test 1.4515 acc 0.6331
+  Ep  78 | lr 2.6e-04 | train 0.7209 acc 0.789 | test 1.4597 acc 0.6352
+  Ep  79 | lr 2.6e-04 | train 0.7058 acc 0.793 | test 1.4380 acc 0.6362
+  Ep  80 | lr 2.6e-04 | train 0.7068 acc 0.794 | test 1.4467 acc 0.6358
+  Ep  81 | lr 2.6e-04 | train 0.6871 acc 0.801 | test 1.4399 acc 0.6374
+  Ep  82 | lr 2.6e-04 | train 0.6829 acc 0.804 | test 1.4588 acc 0.6366
+  Ep  83 | lr 2.6e-04 | train 0.6698 acc 0.806 | test 1.4343 acc 0.6463 ★
+  Ep  84 | lr 2.5e-04 | train 0.6640 acc 0.807 | test 1.4559 acc 0.6407
+  Ep  85 | lr 2.5e-04 | train 0.6704 acc 0.804 | test 1.4515 acc 0.6422
+  Ep  86 | lr 2.5e-04 | train 0.6489 acc 0.808 | test 1.4626 acc 0.6379
+  Ep  87 | lr 2.5e-04 | train 0.6514 acc 0.810 | test 1.4555 acc 0.6416
+  Ep  88 | lr 2.5e-04 | train 0.6347 acc 0.814 | test 1.4561 acc 0.6433
+  Ep  89 | lr 2.5e-04 | train 0.6259 acc 0.817 | test 1.4716 acc 0.6366
+  Ep  90 | lr 2.5e-04 | train 0.6186 acc 0.818 | test 1.4670 acc 0.6421
+  Ep  91 | lr 2.5e-04 | train 0.6183 acc 0.820 | test 1.4370 acc 0.6488 ★
+  Ep  92 | lr 2.4e-04 | train 0.6121 acc 0.821 | test 1.4636 acc 0.6454
+  Ep  93 | lr 2.4e-04 | train 0.6015 acc 0.824 | test 1.4790 acc 0.6420
+  Ep  94 | lr 2.4e-04 | train 0.6002 acc 0.827 | test 1.4642 acc 0.6405
+  Ep  95 | lr 2.4e-04 | train 0.5914 acc 0.828 | test 1.4726 acc 0.6458
+  Ep  96 | lr 2.4e-04 | train 0.5764 acc 0.833 | test 1.4767 acc 0.6421
+  Ep  97 | lr 2.4e-04 | train 0.5741 acc 0.832 | test 1.4901 acc 0.6410
+  Ep  98 | lr 2.4e-04 | train 0.5700 acc 0.835 | test 1.4781 acc 0.6399
+  Ep  99 | lr 2.4e-04 | train 0.5655 acc 0.837 | test 1.5116 acc 0.6401
+  Ep 100 | lr 2.3e-04 | train 0.5533 acc 0.837 | test 1.4786 acc 0.6471
+  Ep 101 | lr 2.3e-04 | train 0.5495 acc 0.840 | test 1.5003 acc 0.6415
+  Ep 102 | lr 2.3e-04 | train 0.5513 acc 0.838 | test 1.4744 acc 0.6510 ★
+  Ep 103 | lr 2.3e-04 | train 0.5435 acc 0.842 | test 1.5082 acc 0.6440
+  Ep 104 | lr 2.3e-04 | train 0.5324 acc 0.844 | test 1.4934 acc 0.6419
+  Ep 105 | lr 2.3e-04 | train 0.5310 acc 0.847 | test 1.4967 acc 0.6411
+  Ep 106 | lr 2.3e-04 | train 0.5207 acc 0.848 | test 1.4939 acc 0.6472
+  Ep 107 | lr 2.2e-04 | train 0.5227 acc 0.848 | test 1.5418 acc 0.6363
+  Ep 108 | lr 2.2e-04 | train 0.5120 acc 0.850 | test 1.5403 acc 0.6410
+  Ep 109 | lr 2.2e-04 | train 0.5106 acc 0.852 | test 1.5199 acc 0.6405
+  Ep 110 | lr 2.2e-04 | train 0.5076 acc 0.854 | test 1.4776 acc 0.6495
+  Ep 111 | lr 2.2e-04 | train 0.5097 acc 0.851 | test 1.5159 acc 0.6434
+  Ep 112 | lr 2.2e-04 | train 0.5012 acc 0.856 | test 1.4979 acc 0.6409
+  Ep 113 | lr 2.2e-04 | train 0.4972 acc 0.856 | test 1.5006 acc 0.6435
+  Ep 114 | lr 2.1e-04 | train 0.4916 acc 0.859 | test 1.5622 acc 0.6393
+  Ep 115 | lr 2.1e-04 | train 0.4848 acc 0.858 | test 1.5033 acc 0.6499
+  Ep 116 | lr 2.1e-04 | train 0.4745 acc 0.863 | test 1.4905 acc 0.6521 ★
+  Ep 117 | lr 2.1e-04 | train 0.4756 acc 0.861 | test 1.5157 acc 0.6496
+  Ep 118 | lr 2.1e-04 | train 0.4711 acc 0.864 | test 1.5305 acc 0.6446
+  Ep 119 | lr 2.1e-04 | train 0.4561 acc 0.867 | test 1.5484 acc 0.6415
+  Ep 120 | lr 2.1e-04 | train 0.4628 acc 0.868 | test 1.5282 acc 0.6453
+  Ep 121 | lr 2.0e-04 | train 0.4625 acc 0.866 | test 1.5216 acc 0.6455
+  Ep 122 | lr 2.0e-04 | train 0.4577 acc 0.868 | test 1.5104 acc 0.6485
+  Ep 123 | lr 2.0e-04 | train 0.4561 acc 0.867 | test 1.5090 acc 0.6440
+  Ep 124 | lr 2.0e-04 | train 0.4519 acc 0.868 | test 1.5191 acc 0.6474
+  Ep 125 | lr 2.0e-04 | train 0.4380 acc 0.874 | test 1.5448 acc 0.6407
+  Ep 126 | lr 2.0e-04 | train 0.4474 acc 0.872 | test 1.5360 acc 0.6434
+  Ep 127 | lr 1.9e-04 | train 0.4386 acc 0.873 | test 1.5150 acc 0.6486
+  Ep 128 | lr 1.9e-04 | train 0.4255 acc 0.877 | test 1.5371 acc 0.6442
+  Ep 129 | lr 1.9e-04 | train 0.4288 acc 0.875 | test 1.5479 acc 0.6418
+  Ep 130 | lr 1.9e-04 | train 0.4249 acc 0.877 | test 1.5324 acc 0.6464
+  Ep 131 | lr 1.9e-04 | train 0.4150 acc 0.880 | test 1.5375 acc 0.6454
+  Ep 132 | lr 1.9e-04 | train 0.4128 acc 0.880 | test 1.5684 acc 0.6372
+  Ep 133 | lr 1.9e-04 | train 0.4105 acc 0.881 | test 1.5371 acc 0.6453
+  Ep 134 | lr 1.8e-04 | train 0.4065 acc 0.881 | test 1.5331 acc 0.6496
+  Ep 135 | lr 1.8e-04 | train 0.3999 acc 0.884 | test 1.5564 acc 0.6443
+  Ep 136 | lr 1.8e-04 | train 0.3976 acc 0.887 | test 1.5389 acc 0.6451
+  Ep 137 | lr 1.8e-04 | train 0.3963 acc 0.886 | test 1.5401 acc 0.6486
+  Ep 138 | lr 1.8e-04 | train 0.3994 acc 0.884 | test 1.5363 acc 0.6528 ★
+  Ep 139 | lr 1.8e-04 | train 0.3973 acc 0.885 | test 1.5482 acc 0.6483
+  Ep 140 | lr 1.7e-04 | train 0.3938 acc 0.887 | test 1.5239 acc 0.6500
+  Ep 141 | lr 1.7e-04 | train 0.3774 acc 0.893 | test 1.5499 acc 0.6491
+  Ep 142 | lr 1.7e-04 | train 0.3871 acc 0.888 | test 1.5425 acc 0.6490
+  Ep 143 | lr 1.7e-04 | train 0.3726 acc 0.893 | test 1.5518 acc 0.6498
+  Ep 144 | lr 1.7e-04 | train 0.3696 acc 0.893 | test 1.5570 acc 0.6474
+  Ep 145 | lr 1.7e-04 | train 0.3709 acc 0.893 | test 1.5594 acc 0.6508
+  Ep 146 | lr 1.6e-04 | train 0.3626 acc 0.895 | test 1.5343 acc 0.6542 ★
+  Ep 147 | lr 1.6e-04 | train 0.3699 acc 0.893 | test 1.5503 acc 0.6488
+  Ep 148 | lr 1.6e-04 | train 0.3624 acc 0.895 | test 1.5389 acc 0.6514
+  Ep 149 | lr 1.6e-04 | train 0.3576 acc 0.897 | test 1.5373 acc 0.6542 ★
+  Ep 150 | lr 1.6e-04 | train 0.3643 acc 0.894 | test 1.5662 acc 0.6485
+  Ep 151 | lr 1.6e-04 | train 0.3537 acc 0.899 | test 1.5601 acc 0.6486
+  Ep 152 | lr 1.5e-04 | train 0.3513 acc 0.899 | test 1.5618 acc 0.6524
+  Ep 153 | lr 1.5e-04 | train 0.3443 acc 0.901 | test 1.5620 acc 0.6484
+  Ep 154 | lr 1.5e-04 | train 0.3491 acc 0.898 | test 1.5445 acc 0.6535
+  Ep 155 | lr 1.5e-04 | train 0.3456 acc 0.901 | test 1.5601 acc 0.6489
+  Ep 156 | lr 1.5e-04 | train 0.3452 acc 0.901 | test 1.5542 acc 0.6490
+  Ep 157 | lr 1.5e-04 | train 0.3367 acc 0.904 | test 1.5730 acc 0.6477
+  Ep 158 | lr 1.5e-04 | train 0.3341 acc 0.904 | test 1.5491 acc 0.6520
+  Ep 159 | lr 1.4e-04 | train 0.3236 acc 0.908 | test 1.5534 acc 0.6525
+  Ep 160 | lr 1.4e-04 | train 0.3245 acc 0.907 | test 1.5964 acc 0.6476
+  Ep 161 | lr 1.4e-04 | train 0.3199 acc 0.909 | test 1.5577 acc 0.6538
+  Ep 162 | lr 1.4e-04 | train 0.3191 acc 0.908 | test 1.5572 acc 0.6551 ★
+  Ep 163 | lr 1.4e-04 | train 0.3196 acc 0.909 | test 1.5469 acc 0.6544
+  Ep 164 | lr 1.4e-04 | train 0.3202 acc 0.907 | test 1.5435 acc 0.6572 ★
+  Ep 165 | lr 1.3e-04 | train 0.3094 acc 0.912 | test 1.5495 acc 0.6522
+  Ep 166 | lr 1.3e-04 | train 0.3088 acc 0.910 | test 1.5500 acc 0.6543
+  Ep 167 | lr 1.3e-04 | train 0.3175 acc 0.909 | test 1.5828 acc 0.6482
+  Ep 168 | lr 1.3e-04 | train 0.3005 acc 0.914 | test 1.5730 acc 0.6564
+  Ep 169 | lr 1.3e-04 | train 0.3018 acc 0.914 | test 1.5737 acc 0.6549
+  Ep 170 | lr 1.3e-04 | train 0.3021 acc 0.914 | test 1.5634 acc 0.6522
+  Ep 171 | lr 1.2e-04 | train 0.2992 acc 0.914 | test 1.5936 acc 0.6494
+  Ep 172 | lr 1.2e-04 | train 0.2959 acc 0.916 | test 1.5846 acc 0.6523
+  Ep 173 | lr 1.2e-04 | train 0.2917 acc 0.916 | test 1.5671 acc 0.6531
+  Ep 174 | lr 1.2e-04 | train 0.2889 acc 0.917 | test 1.5890 acc 0.6534
+  Ep 175 | lr 1.2e-04 | train 0.2907 acc 0.917 | test 1.5896 acc 0.6509
+  Ep 176 | lr 1.2e-04 | train 0.2815 acc 0.921 | test 1.5768 acc 0.6499
+  Ep 177 | lr 1.1e-04 | train 0.2894 acc 0.916 | test 1.5782 acc 0.6520
+  Ep 178 | lr 1.1e-04 | train 0.2822 acc 0.919 | test 1.5918 acc 0.6501
+  Ep 179 | lr 1.1e-04 | train 0.2758 acc 0.922 | test 1.5854 acc 0.6516
+  Ep 180 | lr 1.1e-04 | train 0.2732 acc 0.921 | test 1.5689 acc 0.6555
+  Ep 181 | lr 1.1e-04 | train 0.2771 acc 0.922 | test 1.5758 acc 0.6566
+  Ep 182 | lr 1.1e-04 | train 0.2706 acc 0.924 | test 1.6207 acc 0.6529
+  Ep 183 | lr 1.1e-04 | train 0.2692 acc 0.923 | test 1.6097 acc 0.6508
+  Ep 184 | lr 1.0e-04 | train 0.2624 acc 0.924 | test 1.5939 acc 0.6542
+  Ep 185 | lr 1.0e-04 | train 0.2609 acc 0.924 | test 1.5850 acc 0.6560
+  Ep 186 | lr 1.0e-04 | train 0.2604 acc 0.926 | test 1.5687 acc 0.6541
+  Ep 187 | lr 9.9e-05 | train 0.2537 acc 0.928 | test 1.5980 acc 0.6511
+  Ep 188 | lr 9.8e-05 | train 0.2650 acc 0.925 | test 1.5885 acc 0.6584 ★
+  Ep 189 | lr 9.6e-05 | train 0.2493 acc 0.929 | test 1.5968 acc 0.6589 ★
+  Ep 190 | lr 9.4e-05 | train 0.2502 acc 0.928 | test 1.5832 acc 0.6571
+  Ep 191 | lr 9.3e-05 | train 0.2515 acc 0.928 | test 1.5810 acc 0.6540
+  Ep 192 | lr 9.1e-05 | train 0.2488 acc 0.928 | test 1.5766 acc 0.6589 ★
+  Ep 193 | lr 9.0e-05 | train 0.2444 acc 0.930 | test 1.5925 acc 0.6574
+  Ep 194 | lr 8.8e-05 | train 0.2439 acc 0.930 | test 1.5915 acc 0.6573
+  Ep 195 | lr 8.7e-05 | train 0.2438 acc 0.930 | test 1.5915 acc 0.6540
+  Ep 196 | lr 8.6e-05 | train 0.2383 acc 0.932 | test 1.5874 acc 0.6559
+  Ep 197 | lr 8.4e-05 | train 0.2455 acc 0.930 | test 1.5832 acc 0.6594 ★
+  Ep 198 | lr 8.3e-05 | train 0.2353 acc 0.933 | test 1.5869 acc 0.6549
+  Ep 199 | lr 8.1e-05 | train 0.2319 acc 0.934 | test 1.5898 acc 0.6586
+  Ep 200 | lr 8.0e-05 | train 0.2288 acc 0.934 | test 1.5710 acc 0.6572
+  Ep 201 | lr 7.8e-05 | train 0.2320 acc 0.935 | test 1.5911 acc 0.6571
+  Ep 202 | lr 7.7e-05 | train 0.2319 acc 0.934 | test 1.5808 acc 0.6595 ★
+  Ep 203 | lr 7.5e-05 | train 0.2298 acc 0.934 | test 1.6029 acc 0.6562
+  Ep 204 | lr 7.4e-05 | train 0.2253 acc 0.937 | test 1.5918 acc 0.6614 ★
+  Ep 205 | lr 7.3e-05 | train 0.2240 acc 0.936 | test 1.5865 acc 0.6637 ★
+  Ep 206 | lr 7.1e-05 | train 0.2247 acc 0.936 | test 1.5791 acc 0.6628
+  Ep 207 | lr 7.0e-05 | train 0.2191 acc 0.939 | test 1.5902 acc 0.6601
+  Ep 208 | lr 6.9e-05 | train 0.2150 acc 0.939 | test 1.5964 acc 0.6565
+  Ep 209 | lr 6.7e-05 | train 0.2096 acc 0.941 | test 1.5818 acc 0.6620
+  Ep 210 | lr 6.6e-05 | train 0.2113 acc 0.940 | test 1.5741 acc 0.6625
+  Ep 211 | lr 6.4e-05 | train 0.2141 acc 0.940 | test 1.5781 acc 0.6616
+  Ep 212 | lr 6.3e-05 | train 0.2067 acc 0.940 | test 1.5733 acc 0.6651 ★
+  Ep 213 | lr 6.2e-05 | train 0.2073 acc 0.941 | test 1.5888 acc 0.6600
+  Ep 214 | lr 6.1e-05 | train 0.2079 acc 0.941 | test 1.5921 acc 0.6625
+  Ep 215 | lr 5.9e-05 | train 0.2088 acc 0.942 | test 1.5903 acc 0.6599
+  Ep 216 | lr 5.8e-05 | train 0.2024 acc 0.944 | test 1.5736 acc 0.6617
+  Ep 217 | lr 5.7e-05 | train 0.1993 acc 0.942 | test 1.5769 acc 0.6623
+  Ep 218 | lr 5.5e-05 | train 0.2019 acc 0.943 | test 1.5737 acc 0.6637
+  Ep 219 | lr 5.4e-05 | train 0.2039 acc 0.942 | test 1.5680 acc 0.6632
+  Ep 220 | lr 5.3e-05 | train 0.1990 acc 0.944 | test 1.5721 acc 0.6626
+  Ep 221 | lr 5.2e-05 | train 0.1941 acc 0.945 | test 1.5750 acc 0.6646
+  Ep 222 | lr 5.0e-05 | train 0.1942 acc 0.945 | test 1.5655 acc 0.6655 ★
+  Ep 223 | lr 4.9e-05 | train 0.1982 acc 0.944 | test 1.5624 acc 0.6652
+  Ep 224 | lr 4.8e-05 | train 0.1881 acc 0.947 | test 1.5804 acc 0.6631
+  Ep 225 | lr 4.7e-05 | train 0.1923 acc 0.945 | test 1.5721 acc 0.6678 ★
+  Ep 226 | lr 4.6e-05 | train 0.1911 acc 0.946 | test 1.5836 acc 0.6625
+  Ep 227 | lr 4.5e-05 | train 0.1892 acc 0.946 | test 1.5626 acc 0.6660
+  Ep 228 | lr 4.3e-05 | train 0.1886 acc 0.947 | test 1.5768 acc 0.6650
+  Ep 229 | lr 4.2e-05 | train 0.1869 acc 0.947 | test 1.5673 acc 0.6630
+  Ep 230 | lr 4.1e-05 | train 0.1827 acc 0.948 | test 1.5655 acc 0.6622
+  Ep 231 | lr 4.0e-05 | train 0.1798 acc 0.949 | test 1.5868 acc 0.6616
+  Ep 232 | lr 3.9e-05 | train 0.1821 acc 0.949 | test 1.5776 acc 0.6669
+  Ep 233 | lr 3.8e-05 | train 0.1824 acc 0.948 | test 1.5759 acc 0.6637
+  Ep 234 | lr 3.7e-05 | train 0.1836 acc 0.948 | test 1.5847 acc 0.6637
+  Ep 235 | lr 3.6e-05 | train 0.1708 acc 0.952 | test 1.5840 acc 0.6651
+  Ep 236 | lr 3.5e-05 | train 0.1790 acc 0.949 | test 1.5745 acc 0.6683 ★
+  Ep 237 | lr 3.4e-05 | train 0.1737 acc 0.951 | test 1.5757 acc 0.6671
+  Ep 238 | lr 3.3e-05 | train 0.1709 acc 0.952 | test 1.5571 acc 0.6728 ★
+  Ep 239 | lr 3.2e-05 | train 0.1742 acc 0.951 | test 1.5723 acc 0.6682
+  Ep 240 | lr 3.1e-05 | train 0.1716 acc 0.952 | test 1.5723 acc 0.6681
+  Ep 241 | lr 3.0e-05 | train 0.1734 acc 0.953 | test 1.5832 acc 0.6667
+  Ep 242 | lr 2.9e-05 | train 0.1739 acc 0.950 | test 1.5830 acc 0.6663
+  Ep 243 | lr 2.8e-05 | train 0.1663 acc 0.954 | test 1.5712 acc 0.6693
+  Ep 244 | lr 2.7e-05 | train 0.1691 acc 0.953 | test 1.5811 acc 0.6697
+  Ep 245 | lr 2.6e-05 | train 0.1642 acc 0.954 | test 1.5783 acc 0.6685
+  Ep 246 | lr 2.5e-05 | train 0.1671 acc 0.952 | test 1.5766 acc 0.6672
+  Ep 247 | lr 2.4e-05 | train 0.1676 acc 0.953 | test 1.5692 acc 0.6701
+  Ep 248 | lr 2.3e-05 | train 0.1633 acc 0.955 | test 1.5749 acc 0.6698
+  Ep 249 | lr 2.2e-05 | train 0.1619 acc 0.954 | test 1.5691 acc 0.6710
+  Ep 250 | lr 2.1e-05 | train 0.1675 acc 0.953 | test 1.5776 acc 0.6668
+  Ep 251 | lr 2.1e-05 | train 0.1612 acc 0.956 | test 1.5701 acc 0.6713
+  Ep 252 | lr 2.0e-05 | train 0.1650 acc 0.954 | test 1.5743 acc 0.6686
+  Ep 253 | lr 1.9e-05 | train 0.1537 acc 0.957 | test 1.5706 acc 0.6686
+  Ep 254 | lr 1.8e-05 | train 0.1599 acc 0.956 | test 1.5676 acc 0.6681
+  Ep 255 | lr 1.7e-05 | train 0.1569 acc 0.956 | test 1.5610 acc 0.6700
+  Ep 256 | lr 1.7e-05 | train 0.1539 acc 0.957 | test 1.5655 acc 0.6702
+  Ep 257 | lr 1.6e-05 | train 0.1548 acc 0.957 | test 1.5644 acc 0.6715
+  Ep 258 | lr 1.5e-05 | train 0.1561 acc 0.957 | test 1.5700 acc 0.6671
+  Ep 259 | lr 1.5e-05 | train 0.1534 acc 0.957 | test 1.5693 acc 0.6688
+  Ep 260 | lr 1.4e-05 | train 0.1460 acc 0.959 | test 1.5734 acc 0.6693
+  Ep 261 | lr 1.3e-05 | train 0.1473 acc 0.958 | test 1.5707 acc 0.6702
+  Ep 262 | lr 1.3e-05 | train 0.1526 acc 0.956 | test 1.5666 acc 0.6690
+  Ep 263 | lr 1.2e-05 | train 0.1530 acc 0.957 | test 1.5710 acc 0.6700
+  Ep 264 | lr 1.1e-05 | train 0.1469 acc 0.959 | test 1.5714 acc 0.6665
+  Ep 265 | lr 1.1e-05 | train 0.1511 acc 0.958 | test 1.5630 acc 0.6680
+  Ep 266 | lr 1.0e-05 | train 0.1491 acc 0.958 | test 1.5587 acc 0.6696
+  Ep 267 | lr 9.5e-06 | train 0.1465 acc 0.959 | test 1.5631 acc 0.6703
+  Ep 268 | lr 8.9e-06 | train 0.1498 acc 0.958 | test 1.5647 acc 0.6689
+  Ep 269 | lr 8.4e-06 | train 0.1529 acc 0.957 | test 1.5613 acc 0.6711
+  Ep 270 | lr 7.9e-06 | train 0.1461 acc 0.959 | test 1.5651 acc 0.6698
+  Ep 271 | lr 7.3e-06 | train 0.1482 acc 0.959 | test 1.5648 acc 0.6704
+  Ep 272 | lr 6.8e-06 | train 0.1500 acc 0.959 | test 1.5617 acc 0.6715
+  Ep 273 | lr 6.4e-06 | train 0.1438 acc 0.960 | test 1.5563 acc 0.6728 ★
+  Ep 274 | lr 5.9e-06 | train 0.1456 acc 0.960 | test 1.5627 acc 0.6717
+  Ep 275 | lr 5.5e-06 | train 0.1493 acc 0.957 | test 1.5625 acc 0.6717
+  Ep 276 | lr 5.0e-06 | train 0.1454 acc 0.959 | test 1.5620 acc 0.6714
+  Ep 277 | lr 4.6e-06 | train 0.1465 acc 0.959 | test 1.5645 acc 0.6710
+  Ep 278 | lr 4.2e-06 | train 0.1421 acc 0.961 | test 1.5669 acc 0.6687
+  Ep 279 | lr 3.9e-06 | train 0.1442 acc 0.960 | test 1.5652 acc 0.6685
+  Ep 280 | lr 3.5e-06 | train 0.1390 acc 0.961 | test 1.5683 acc 0.6691
+  Ep 281 | lr 3.2e-06 | train 0.1435 acc 0.960 | test 1.5650 acc 0.6689
+  Ep 282 | lr 2.8e-06 | train 0.1431 acc 0.961 | test 1.5660 acc 0.6682
+  Ep 283 | lr 2.5e-06 | train 0.1427 acc 0.961 | test 1.5658 acc 0.6695
+  Ep 284 | lr 2.2e-06 | train 0.1438 acc 0.961 | test 1.5641 acc 0.6693
+  Ep 285 | lr 2.0e-06 | train 0.1482 acc 0.958 | test 1.5651 acc 0.6716
+  Ep 286 | lr 1.7e-06 | train 0.1446 acc 0.960 | test 1.5622 acc 0.6698
+  Ep 287 | lr 1.5e-06 | train 0.1448 acc 0.960 | test 1.5612 acc 0.6706
+  Ep 288 | lr 1.3e-06 | train 0.1453 acc 0.961 | test 1.5600 acc 0.6722
+  Ep 289 | lr 1.1e-06 | train 0.1450 acc 0.959 | test 1.5619 acc 0.6717
+  Ep 290 | lr 8.8e-07 | train 0.1416 acc 0.961 | test 1.5612 acc 0.6712
+  Ep 291 | lr 7.1e-07 | train 0.1421 acc 0.961 | test 1.5595 acc 0.6712
+  Ep 292 | lr 5.6e-07 | train 0.1406 acc 0.961 | test 1.5617 acc 0.6710
+  Ep 293 | lr 4.3e-07 | train 0.1424 acc 0.961 | test 1.5582 acc 0.6717
+  Ep 294 | lr 3.2e-07 | train 0.1438 acc 0.959 | test 1.5605 acc 0.6719
+  Ep 295 | lr 2.2e-07 | train 0.1445 acc 0.960 | test 1.5584 acc 0.6713
+  Ep 296 | lr 1.4e-07 | train 0.1440 acc 0.960 | test 1.5619 acc 0.6708
+  Ep 297 | lr 7.9e-08 | train 0.1428 acc 0.960 | test 1.5618 acc 0.6704
+  Ep 298 | lr 3.5e-08 | train 0.1412 acc 0.961 | test 1.5605 acc 0.6706
+  Ep 299 | lr 8.8e-09 | train 0.1391 acc 0.962 | test 1.5598 acc 0.6700
+  Ep 300 | lr 0.0e+00 | train 0.1416 acc 0.961 | test 1.5620 acc 0.6708
+
+  Done in 267.5 min. Best: 0.6728 @ epoch 238
+  Saved: results/stats3seed/step2_vanilla_seed42_20260612_224707.json
+
+# vanilla seed=42 done in 4.5h, OK
+  best_acc=0.6728 @ epoch 238
+
+############################################################
+# [2/9] vanilla  seed=123
+############################################################
+/home/lab/miniconda3/lib/python3.13/site-packages/torchvision/datasets/cifar.py:83: VisibleDeprecationWarning: dtype(): align should be passed as Python or NumPy boolean but got `align=0`. Did you mean to pass a tuple to create a subarray type? (Deprecated NumPy 2.4)
+  entry = pickle.load(f, encoding="latin1")
+Device: cuda (NVIDIA RTX PRO 6000 Blackwell Workstation Edition)
+
+============================================================
+  PC-S³ Step 2 + Aug: VANILLA
+  Params: 6,549,572  |  d=160  L=8  patch=4
+  epochs=300  batch=128  wd=0.05
+  Aug: RandAugment(N=2,M=9) + RandomErasing(0.25)
+============================================================
+  Ep   1 | lr 6.0e-05 | train 4.3904 acc 0.047 | test 4.0829 acc 0.0896 ★
+  Ep   2 | lr 9.0e-05 | train 4.1012 acc 0.084 | test 3.8468 acc 0.1245 ★
+  Ep   3 | lr 1.2e-04 | train 3.8886 acc 0.114 | test 3.5746 acc 0.1705 ★
+  Ep   4 | lr 1.5e-04 | train 3.6551 acc 0.152 | test 3.3010 acc 0.2224 ★
+  Ep   5 | lr 1.8e-04 | train 3.4042 acc 0.194 | test 3.0612 acc 0.2595 ★
+  Ep   6 | lr 2.1e-04 | train 3.1828 acc 0.234 | test 2.8092 acc 0.3076 ★
+  Ep   7 | lr 2.4e-04 | train 3.0004 acc 0.262 | test 2.6458 acc 0.3324 ★
+  Ep   8 | lr 2.7e-04 | train 2.8471 acc 0.295 | test 2.5322 acc 0.3582 ★
+  Ep   9 | lr 3.0e-04 | train 2.7077 acc 0.320 | test 2.3649 acc 0.3928 ★
+  Ep  10 | lr 3.0e-04 | train 2.6075 acc 0.342 | test 2.2732 acc 0.4048 ★
+  Ep  11 | lr 3.0e-04 | train 2.4846 acc 0.365 | test 2.2113 acc 0.4212 ★
+  Ep  12 | lr 3.0e-04 | train 2.3763 acc 0.388 | test 2.1044 acc 0.4477 ★
+  Ep  13 | lr 3.0e-04 | train 2.2818 acc 0.406 | test 2.0148 acc 0.4643 ★
+  Ep  14 | lr 3.0e-04 | train 2.2088 acc 0.423 | test 1.9586 acc 0.4804 ★
+  Ep  15 | lr 3.0e-04 | train 2.1367 acc 0.438 | test 1.9104 acc 0.4869 ★
+  Ep  16 | lr 3.0e-04 | train 2.0660 acc 0.456 | test 1.8515 acc 0.4995 ★
+  Ep  17 | lr 3.0e-04 | train 1.9990 acc 0.469 | test 1.8227 acc 0.5099 ★
+  Ep  18 | lr 3.0e-04 | train 1.9445 acc 0.482 | test 1.7505 acc 0.5217 ★
+  Ep  19 | lr 3.0e-04 | train 1.8951 acc 0.491 | test 1.7276 acc 0.5313 ★
+  Ep  20 | lr 3.0e-04 | train 1.8482 acc 0.503 | test 1.6865 acc 0.5369 ★
+  Ep  21 | lr 3.0e-04 | train 1.7918 acc 0.518 | test 1.6382 acc 0.5547 ★
+  Ep  22 | lr 3.0e-04 | train 1.7500 acc 0.525 | test 1.6165 acc 0.5640 ★
+  Ep  23 | lr 3.0e-04 | train 1.7210 acc 0.533 | test 1.5967 acc 0.5670 ★
+  Ep  24 | lr 3.0e-04 | train 1.6746 acc 0.543 | test 1.6023 acc 0.5644
+  Ep  25 | lr 3.0e-04 | train 1.6363 acc 0.552 | test 1.5603 acc 0.5717 ★
+  Ep  26 | lr 3.0e-04 | train 1.5939 acc 0.560 | test 1.5088 acc 0.5832 ★
+  Ep  27 | lr 3.0e-04 | train 1.5636 acc 0.571 | test 1.5514 acc 0.5803
+  Ep  28 | lr 3.0e-04 | train 1.5283 acc 0.578 | test 1.4801 acc 0.5939 ★
+  Ep  29 | lr 3.0e-04 | train 1.5020 acc 0.584 | test 1.4999 acc 0.5927
+  Ep  30 | lr 3.0e-04 | train 1.4742 acc 0.591 | test 1.4666 acc 0.5957 ★
+  Ep  31 | lr 3.0e-04 | train 1.4452 acc 0.597 | test 1.4642 acc 0.5965 ★
+  Ep  32 | lr 3.0e-04 | train 1.4168 acc 0.606 | test 1.4499 acc 0.5960
+  Ep  33 | lr 3.0e-04 | train 1.3878 acc 0.615 | test 1.4691 acc 0.6014 ★
+  Ep  34 | lr 2.9e-04 | train 1.3562 acc 0.624 | test 1.4427 acc 0.6050 ★
+  Ep  35 | lr 2.9e-04 | train 1.3301 acc 0.626 | test 1.4313 acc 0.6092 ★
+  Ep  36 | lr 2.9e-04 | train 1.3109 acc 0.630 | test 1.4240 acc 0.6087
+  Ep  37 | lr 2.9e-04 | train 1.2887 acc 0.636 | test 1.4217 acc 0.6076
+  Ep  38 | lr 2.9e-04 | train 1.2729 acc 0.644 | test 1.4220 acc 0.6139 ★
+  Ep  39 | lr 2.9e-04 | train 1.2466 acc 0.648 | test 1.4079 acc 0.6173 ★
+  Ep  40 | lr 2.9e-04 | train 1.2176 acc 0.657 | test 1.4172 acc 0.6115
+  Ep  41 | lr 2.9e-04 | train 1.1953 acc 0.660 | test 1.4141 acc 0.6129
+  Ep  42 | lr 2.9e-04 | train 1.1688 acc 0.667 | test 1.4277 acc 0.6136
+  Ep  43 | lr 2.9e-04 | train 1.1573 acc 0.672 | test 1.4136 acc 0.6171
+  Ep  44 | lr 2.9e-04 | train 1.1367 acc 0.674 | test 1.4099 acc 0.6190 ★
+  Ep  45 | lr 2.9e-04 | train 1.1131 acc 0.685 | test 1.3660 acc 0.6252 ★
+  Ep  46 | lr 2.9e-04 | train 1.1010 acc 0.685 | test 1.4024 acc 0.6296 ★
+  Ep  47 | lr 2.9e-04 | train 1.0780 acc 0.691 | test 1.3884 acc 0.6244
+  Ep  48 | lr 2.9e-04 | train 1.0652 acc 0.695 | test 1.3461 acc 0.6332 ★
+  Ep  49 | lr 2.9e-04 | train 1.0506 acc 0.696 | test 1.4049 acc 0.6257
+  Ep  50 | lr 2.9e-04 | train 1.0229 acc 0.705 | test 1.4052 acc 0.6269
+  Ep  51 | lr 2.9e-04 | train 1.0067 acc 0.710 | test 1.4151 acc 0.6222
+  Ep  52 | lr 2.8e-04 | train 0.9860 acc 0.716 | test 1.3814 acc 0.6259
+  Ep  53 | lr 2.8e-04 | train 0.9772 acc 0.718 | test 1.3629 acc 0.6349 ★
+  Ep  54 | lr 2.8e-04 | train 0.9600 acc 0.721 | test 1.3717 acc 0.6340
+  Ep  55 | lr 2.8e-04 | train 0.9463 acc 0.727 | test 1.3668 acc 0.6379 ★
+  Ep  56 | lr 2.8e-04 | train 0.9318 acc 0.729 | test 1.3968 acc 0.6351
+  Ep  57 | lr 2.8e-04 | train 0.9348 acc 0.731 | test 1.3737 acc 0.6345
+  Ep  58 | lr 2.8e-04 | train 0.9164 acc 0.734 | test 1.3749 acc 0.6362
+  Ep  59 | lr 2.8e-04 | train 0.8898 acc 0.743 | test 1.3932 acc 0.6333
+  Ep  60 | lr 2.8e-04 | train 0.8889 acc 0.743 | test 1.4106 acc 0.6311
+  Ep  61 | lr 2.8e-04 | train 0.8744 acc 0.747 | test 1.4371 acc 0.6281
+  Ep  62 | lr 2.8e-04 | train 0.8619 acc 0.749 | test 1.4024 acc 0.6317
+  Ep  63 | lr 2.8e-04 | train 0.8448 acc 0.753 | test 1.3983 acc 0.6372
+  Ep  64 | lr 2.8e-04 | train 0.8363 acc 0.755 | test 1.4020 acc 0.6353
+  Ep  65 | lr 2.7e-04 | train 0.8218 acc 0.759 | test 1.4091 acc 0.6327
+  Ep  66 | lr 2.7e-04 | train 0.8155 acc 0.764 | test 1.3835 acc 0.6369
+  Ep  67 | lr 2.7e-04 | train 0.8007 acc 0.766 | test 1.4094 acc 0.6401 ★
+  Ep  68 | lr 2.7e-04 | train 0.7857 acc 0.771 | test 1.4022 acc 0.6370
+  Ep  69 | lr 2.7e-04 | train 0.7878 acc 0.768 | test 1.4024 acc 0.6399
+  Ep  70 | lr 2.7e-04 | train 0.7714 acc 0.776 | test 1.4066 acc 0.6337
+  Ep  71 | lr 2.7e-04 | train 0.7637 acc 0.778 | test 1.4406 acc 0.6292
+  Ep  72 | lr 2.7e-04 | train 0.7577 acc 0.779 | test 1.4275 acc 0.6357
+  Ep  73 | lr 2.7e-04 | train 0.7403 acc 0.782 | test 1.4127 acc 0.6387
+  Ep  74 | lr 2.7e-04 | train 0.7311 acc 0.787 | test 1.4575 acc 0.6332
+  Ep  75 | lr 2.6e-04 | train 0.7293 acc 0.786 | test 1.3921 acc 0.6439 ★
+  Ep  76 | lr 2.6e-04 | train 0.7231 acc 0.789 | test 1.4710 acc 0.6270
+  Ep  77 | lr 2.6e-04 | train 0.7043 acc 0.793 | test 1.4088 acc 0.6420
+  Ep  78 | lr 2.6e-04 | train 0.7017 acc 0.798 | test 1.4189 acc 0.6411
+  Ep  79 | lr 2.6e-04 | train 0.6888 acc 0.800 | test 1.4328 acc 0.6388
+  Ep  80 | lr 2.6e-04 | train 0.6794 acc 0.802 | test 1.4102 acc 0.6433
+  Ep  81 | lr 2.6e-04 | train 0.6744 acc 0.805 | test 1.4438 acc 0.6389
+  Ep  82 | lr 2.6e-04 | train 0.6655 acc 0.806 | test 1.4086 acc 0.6477 ★
+  Ep  83 | lr 2.6e-04 | train 0.6648 acc 0.805 | test 1.4339 acc 0.6450
+  Ep  84 | lr 2.5e-04 | train 0.6540 acc 0.808 | test 1.4298 acc 0.6429
+  Ep  85 | lr 2.5e-04 | train 0.6422 acc 0.812 | test 1.4475 acc 0.6409
+  Ep  86 | lr 2.5e-04 | train 0.6418 acc 0.812 | test 1.4375 acc 0.6452
+  Ep  87 | lr 2.5e-04 | train 0.6260 acc 0.818 | test 1.4549 acc 0.6387
+  Ep  88 | lr 2.5e-04 | train 0.6256 acc 0.819 | test 1.4493 acc 0.6442
+  Ep  89 | lr 2.5e-04 | train 0.6282 acc 0.815 | test 1.4078 acc 0.6488 ★
+  Ep  90 | lr 2.5e-04 | train 0.6068 acc 0.822 | test 1.4423 acc 0.6464
+  Ep  91 | lr 2.5e-04 | train 0.6107 acc 0.821 | test 1.4501 acc 0.6491 ★
+  Ep  92 | lr 2.4e-04 | train 0.5987 acc 0.826 | test 1.4566 acc 0.6424
+  Ep  93 | lr 2.4e-04 | train 0.5891 acc 0.828 | test 1.4435 acc 0.6476
+  Ep  94 | lr 2.4e-04 | train 0.5830 acc 0.830 | test 1.4347 acc 0.6492 ★
+  Ep  95 | lr 2.4e-04 | train 0.5850 acc 0.829 | test 1.4682 acc 0.6483
+  Ep  96 | lr 2.4e-04 | train 0.5754 acc 0.832 | test 1.4484 acc 0.6464
+  Ep  97 | lr 2.4e-04 | train 0.5757 acc 0.832 | test 1.4281 acc 0.6509 ★
+  Ep  98 | lr 2.4e-04 | train 0.5623 acc 0.835 | test 1.4755 acc 0.6402
+  Ep  99 | lr 2.4e-04 | train 0.5581 acc 0.837 | test 1.4800 acc 0.6407
+  Ep 100 | lr 2.3e-04 | train 0.5500 acc 0.839 | test 1.4785 acc 0.6448
+  Ep 101 | lr 2.3e-04 | train 0.5563 acc 0.838 | test 1.4635 acc 0.6449
+  Ep 102 | lr 2.3e-04 | train 0.5314 acc 0.845 | test 1.4904 acc 0.6430
+  Ep 103 | lr 2.3e-04 | train 0.5287 acc 0.846 | test 1.4629 acc 0.6497
+  Ep 104 | lr 2.3e-04 | train 0.5286 acc 0.846 | test 1.4876 acc 0.6463
+  Ep 105 | lr 2.3e-04 | train 0.5283 acc 0.846 | test 1.4739 acc 0.6511 ★
+  Ep 106 | lr 2.3e-04 | train 0.5214 acc 0.847 | test 1.5011 acc 0.6422
+  Ep 107 | lr 2.2e-04 | train 0.5148 acc 0.849 | test 1.4989 acc 0.6419
+  Ep 108 | lr 2.2e-04 | train 0.5090 acc 0.852 | test 1.4984 acc 0.6449
+  Ep 109 | lr 2.2e-04 | train 0.5144 acc 0.850 | test 1.4917 acc 0.6450
+  Ep 110 | lr 2.2e-04 | train 0.4961 acc 0.855 | test 1.4915 acc 0.6474
+  Ep 111 | lr 2.2e-04 | train 0.4911 acc 0.859 | test 1.4935 acc 0.6443
+  Ep 112 | lr 2.2e-04 | train 0.4933 acc 0.857 | test 1.4713 acc 0.6469
+  Ep 113 | lr 2.2e-04 | train 0.4874 acc 0.858 | test 1.4740 acc 0.6533 ★
+  Ep 114 | lr 2.1e-04 | train 0.4807 acc 0.861 | test 1.4744 acc 0.6493
+  Ep 115 | lr 2.1e-04 | train 0.4856 acc 0.859 | test 1.4600 acc 0.6517
+  Ep 116 | lr 2.1e-04 | train 0.4785 acc 0.859 | test 1.4644 acc 0.6515
+  Ep 117 | lr 2.1e-04 | train 0.4716 acc 0.865 | test 1.4856 acc 0.6509
+  Ep 118 | lr 2.1e-04 | train 0.4633 acc 0.865 | test 1.4808 acc 0.6523
+  Ep 119 | lr 2.1e-04 | train 0.4565 acc 0.865 | test 1.4991 acc 0.6472
+  Ep 120 | lr 2.1e-04 | train 0.4552 acc 0.868 | test 1.5258 acc 0.6429
+  Ep 121 | lr 2.0e-04 | train 0.4537 acc 0.869 | test 1.5148 acc 0.6501
+  Ep 122 | lr 2.0e-04 | train 0.4500 acc 0.871 | test 1.4871 acc 0.6530
+  Ep 123 | lr 2.0e-04 | train 0.4481 acc 0.868 | test 1.5175 acc 0.6465
+  Ep 124 | lr 2.0e-04 | train 0.4426 acc 0.871 | test 1.4882 acc 0.6533 ★
+  Ep 125 | lr 2.0e-04 | train 0.4368 acc 0.873 | test 1.5155 acc 0.6473
+  Ep 126 | lr 2.0e-04 | train 0.4381 acc 0.873 | test 1.5308 acc 0.6528
+  Ep 127 | lr 1.9e-04 | train 0.4370 acc 0.874 | test 1.5278 acc 0.6492
+  Ep 128 | lr 1.9e-04 | train 0.4204 acc 0.879 | test 1.4976 acc 0.6563 ★
+  Ep 129 | lr 1.9e-04 | train 0.4225 acc 0.876 | test 1.4904 acc 0.6489
+  Ep 130 | lr 1.9e-04 | train 0.4142 acc 0.879 | test 1.5011 acc 0.6567 ★
+  Ep 131 | lr 1.9e-04 | train 0.4157 acc 0.880 | test 1.5051 acc 0.6566
+  Ep 132 | lr 1.9e-04 | train 0.4203 acc 0.878 | test 1.4758 acc 0.6585 ★
+  Ep 133 | lr 1.9e-04 | train 0.4072 acc 0.881 | test 1.5031 acc 0.6557
+  Ep 134 | lr 1.8e-04 | train 0.4060 acc 0.882 | test 1.5093 acc 0.6541
+  Ep 135 | lr 1.8e-04 | train 0.4027 acc 0.885 | test 1.4995 acc 0.6526
+  Ep 136 | lr 1.8e-04 | train 0.3957 acc 0.884 | test 1.5217 acc 0.6520
+  Ep 137 | lr 1.8e-04 | train 0.3952 acc 0.886 | test 1.5187 acc 0.6489
+  Ep 138 | lr 1.8e-04 | train 0.3865 acc 0.889 | test 1.5263 acc 0.6497
+  Ep 139 | lr 1.8e-04 | train 0.3844 acc 0.890 | test 1.5033 acc 0.6574
+  Ep 140 | lr 1.7e-04 | train 0.3917 acc 0.888 | test 1.4936 acc 0.6593 ★
+  Ep 141 | lr 1.7e-04 | train 0.3811 acc 0.890 | test 1.5094 acc 0.6539
+  Ep 142 | lr 1.7e-04 | train 0.3766 acc 0.892 | test 1.4994 acc 0.6568
+  Ep 143 | lr 1.7e-04 | train 0.3721 acc 0.893 | test 1.5172 acc 0.6544
+  Ep 144 | lr 1.7e-04 | train 0.3727 acc 0.892 | test 1.5140 acc 0.6542
+  Ep 145 | lr 1.7e-04 | train 0.3687 acc 0.892 | test 1.5296 acc 0.6548
+  Ep 146 | lr 1.6e-04 | train 0.3721 acc 0.893 | test 1.4937 acc 0.6593 ★
+  Ep 147 | lr 1.6e-04 | train 0.3641 acc 0.896 | test 1.4973 acc 0.6608 ★
+  Ep 148 | lr 1.6e-04 | train 0.3647 acc 0.895 | test 1.5424 acc 0.6475
+  Ep 149 | lr 1.6e-04 | train 0.3644 acc 0.895 | test 1.5320 acc 0.6508
+  Ep 150 | lr 1.6e-04 | train 0.3521 acc 0.898 | test 1.5382 acc 0.6524
+  Ep 151 | lr 1.6e-04 | train 0.3557 acc 0.897 | test 1.5322 acc 0.6531
+  Ep 152 | lr 1.5e-04 | train 0.3441 acc 0.900 | test 1.5165 acc 0.6533
+  Ep 153 | lr 1.5e-04 | train 0.3453 acc 0.902 | test 1.5404 acc 0.6554
+  Ep 154 | lr 1.5e-04 | train 0.3421 acc 0.901 | test 1.5274 acc 0.6584
+  Ep 155 | lr 1.5e-04 | train 0.3338 acc 0.903 | test 1.5685 acc 0.6492
+  Ep 156 | lr 1.5e-04 | train 0.3345 acc 0.902 | test 1.5173 acc 0.6553
+  Ep 157 | lr 1.5e-04 | train 0.3305 acc 0.904 | test 1.5328 acc 0.6543
+  Ep 158 | lr 1.5e-04 | train 0.3343 acc 0.904 | test 1.5217 acc 0.6558
+  Ep 159 | lr 1.4e-04 | train 0.3286 acc 0.906 | test 1.5358 acc 0.6598
+  Ep 160 | lr 1.4e-04 | train 0.3226 acc 0.906 | test 1.5235 acc 0.6542
+  Ep 161 | lr 1.4e-04 | train 0.3236 acc 0.906 | test 1.5409 acc 0.6539
+  Ep 162 | lr 1.4e-04 | train 0.3180 acc 0.908 | test 1.5644 acc 0.6517
+  Ep 163 | lr 1.4e-04 | train 0.3206 acc 0.909 | test 1.5478 acc 0.6559
+  Ep 164 | lr 1.4e-04 | train 0.3159 acc 0.909 | test 1.5443 acc 0.6558
+  Ep 165 | lr 1.3e-04 | train 0.3100 acc 0.911 | test 1.5776 acc 0.6499
+  Ep 166 | lr 1.3e-04 | train 0.3096 acc 0.911 | test 1.5323 acc 0.6593
+  Ep 167 | lr 1.3e-04 | train 0.3117 acc 0.910 | test 1.5325 acc 0.6578
+  Ep 168 | lr 1.3e-04 | train 0.3075 acc 0.912 | test 1.5523 acc 0.6513
+  Ep 169 | lr 1.3e-04 | train 0.3080 acc 0.911 | test 1.5451 acc 0.6557
+  Ep 170 | lr 1.3e-04 | train 0.3008 acc 0.915 | test 1.5397 acc 0.6594
+  Ep 171 | lr 1.2e-04 | train 0.2992 acc 0.915 | test 1.5435 acc 0.6580
+  Ep 172 | lr 1.2e-04 | train 0.2949 acc 0.917 | test 1.5375 acc 0.6569
+  Ep 173 | lr 1.2e-04 | train 0.2961 acc 0.916 | test 1.5357 acc 0.6573
+  Ep 174 | lr 1.2e-04 | train 0.2896 acc 0.917 | test 1.5352 acc 0.6610 ★
+  Ep 175 | lr 1.2e-04 | train 0.2851 acc 0.919 | test 1.5464 acc 0.6582
+  Ep 176 | lr 1.2e-04 | train 0.2860 acc 0.918 | test 1.5352 acc 0.6563
+  Ep 177 | lr 1.1e-04 | train 0.2848 acc 0.920 | test 1.5536 acc 0.6589
+  Ep 178 | lr 1.1e-04 | train 0.2871 acc 0.920 | test 1.5443 acc 0.6578
+  Ep 179 | lr 1.1e-04 | train 0.2729 acc 0.921 | test 1.5289 acc 0.6616 ★
+  Ep 180 | lr 1.1e-04 | train 0.2794 acc 0.919 | test 1.5167 acc 0.6608
+  Ep 181 | lr 1.1e-04 | train 0.2731 acc 0.921 | test 1.5308 acc 0.6611
+  Ep 182 | lr 1.1e-04 | train 0.2714 acc 0.922 | test 1.5436 acc 0.6618 ★
+  Ep 183 | lr 1.1e-04 | train 0.2709 acc 0.921 | test 1.5374 acc 0.6604
+  Ep 184 | lr 1.0e-04 | train 0.2676 acc 0.924 | test 1.5565 acc 0.6627 ★
+  Ep 185 | lr 1.0e-04 | train 0.2692 acc 0.922 | test 1.5576 acc 0.6566
+  Ep 186 | lr 1.0e-04 | train 0.2623 acc 0.924 | test 1.5159 acc 0.6663 ★
+  Ep 187 | lr 9.9e-05 | train 0.2605 acc 0.924 | test 1.5378 acc 0.6633
+  Ep 188 | lr 9.8e-05 | train 0.2572 acc 0.927 | test 1.5364 acc 0.6641
+  Ep 189 | lr 9.6e-05 | train 0.2561 acc 0.926 | test 1.5249 acc 0.6637
+  Ep 190 | lr 9.4e-05 | train 0.2525 acc 0.928 | test 1.5463 acc 0.6603
+  Ep 191 | lr 9.3e-05 | train 0.2602 acc 0.926 | test 1.5382 acc 0.6651
+  Ep 192 | lr 9.1e-05 | train 0.2513 acc 0.929 | test 1.5536 acc 0.6585
+  Ep 193 | lr 9.0e-05 | train 0.2442 acc 0.930 | test 1.5073 acc 0.6682 ★
+  Ep 194 | lr 8.8e-05 | train 0.2466 acc 0.929 | test 1.5336 acc 0.6631
+  Ep 195 | lr 8.7e-05 | train 0.2474 acc 0.929 | test 1.5267 acc 0.6615
+  Ep 196 | lr 8.6e-05 | train 0.2434 acc 0.930 | test 1.5250 acc 0.6641
+  Ep 197 | lr 8.4e-05 | train 0.2418 acc 0.932 | test 1.5495 acc 0.6613
+  Ep 198 | lr 8.3e-05 | train 0.2373 acc 0.933 | test 1.5448 acc 0.6620
+  Ep 199 | lr 8.1e-05 | train 0.2380 acc 0.931 | test 1.5383 acc 0.6650
+  Ep 200 | lr 8.0e-05 | train 0.2394 acc 0.932 | test 1.5502 acc 0.6640
+  Ep 201 | lr 7.8e-05 | train 0.2315 acc 0.936 | test 1.5323 acc 0.6668
+  Ep 202 | lr 7.7e-05 | train 0.2301 acc 0.934 | test 1.5320 acc 0.6630
+  Ep 203 | lr 7.5e-05 | train 0.2262 acc 0.935 | test 1.5270 acc 0.6667
+  Ep 204 | lr 7.4e-05 | train 0.2269 acc 0.935 | test 1.5288 acc 0.6614
+  Ep 205 | lr 7.3e-05 | train 0.2258 acc 0.936 | test 1.5405 acc 0.6641
+  Ep 206 | lr 7.1e-05 | train 0.2188 acc 0.938 | test 1.5414 acc 0.6634
+  Ep 207 | lr 7.0e-05 | train 0.2255 acc 0.936 | test 1.5568 acc 0.6609
+  Ep 208 | lr 6.9e-05 | train 0.2201 acc 0.939 | test 1.5273 acc 0.6698 ★
+  Ep 209 | lr 6.7e-05 | train 0.2176 acc 0.938 | test 1.5501 acc 0.6628
+  Ep 210 | lr 6.6e-05 | train 0.2153 acc 0.938 | test 1.5567 acc 0.6572
+  Ep 211 | lr 6.4e-05 | train 0.2172 acc 0.939 | test 1.5316 acc 0.6653
+  Ep 212 | lr 6.3e-05 | train 0.2197 acc 0.937 | test 1.5380 acc 0.6651
+  Ep 213 | lr 6.2e-05 | train 0.2090 acc 0.940 | test 1.5361 acc 0.6650
+  Ep 214 | lr 6.1e-05 | train 0.2131 acc 0.940 | test 1.5353 acc 0.6678
+  Ep 215 | lr 5.9e-05 | train 0.2083 acc 0.941 | test 1.5348 acc 0.6669
+  Ep 216 | lr 5.8e-05 | train 0.2033 acc 0.943 | test 1.5392 acc 0.6670
+  Ep 217 | lr 5.7e-05 | train 0.2018 acc 0.943 | test 1.5488 acc 0.6686
+  Ep 218 | lr 5.5e-05 | train 0.2039 acc 0.943 | test 1.5551 acc 0.6664
+  Ep 219 | lr 5.4e-05 | train 0.2021 acc 0.943 | test 1.5439 acc 0.6651
+  Ep 220 | lr 5.3e-05 | train 0.2013 acc 0.943 | test 1.5491 acc 0.6644
+  Ep 221 | lr 5.2e-05 | train 0.1999 acc 0.944 | test 1.5407 acc 0.6656
+  Ep 222 | lr 5.0e-05 | train 0.1974 acc 0.945 | test 1.5480 acc 0.6672
+  Ep 223 | lr 4.9e-05 | train 0.1998 acc 0.943 | test 1.5313 acc 0.6670
+  Ep 224 | lr 4.8e-05 | train 0.1904 acc 0.947 | test 1.5327 acc 0.6689
+  Ep 225 | lr 4.7e-05 | train 0.1849 acc 0.948 | test 1.5303 acc 0.6668
+  Ep 226 | lr 4.6e-05 | train 0.1883 acc 0.947 | test 1.5319 acc 0.6644
+  Ep 227 | lr 4.5e-05 | train 0.1903 acc 0.946 | test 1.5365 acc 0.6702 ★
+  Ep 228 | lr 4.3e-05 | train 0.1895 acc 0.946 | test 1.5433 acc 0.6693
+  Ep 229 | lr 4.2e-05 | train 0.1894 acc 0.947 | test 1.5173 acc 0.6740 ★
+  Ep 230 | lr 4.1e-05 | train 0.1867 acc 0.946 | test 1.5317 acc 0.6674
+  Ep 231 | lr 4.0e-05 | train 0.1832 acc 0.949 | test 1.5419 acc 0.6689
+  Ep 232 | lr 3.9e-05 | train 0.1785 acc 0.951 | test 1.5308 acc 0.6708
+  Ep 233 | lr 3.8e-05 | train 0.1818 acc 0.950 | test 1.5347 acc 0.6705
+  Ep 234 | lr 3.7e-05 | train 0.1888 acc 0.948 | test 1.5327 acc 0.6681
+  Ep 235 | lr 3.6e-05 | train 0.1833 acc 0.949 | test 1.5370 acc 0.6650
+  Ep 236 | lr 3.5e-05 | train 0.1789 acc 0.949 | test 1.5329 acc 0.6677
+  Ep 237 | lr 3.4e-05 | train 0.1792 acc 0.949 | test 1.5492 acc 0.6683
+  Ep 238 | lr 3.3e-05 | train 0.1770 acc 0.950 | test 1.5461 acc 0.6673
+  Ep 239 | lr 3.2e-05 | train 0.1725 acc 0.951 | test 1.5267 acc 0.6694
+  Ep 240 | lr 3.1e-05 | train 0.1715 acc 0.952 | test 1.5275 acc 0.6695
+  Ep 241 | lr 3.0e-05 | train 0.1680 acc 0.953 | test 1.5145 acc 0.6750 ★
+  Ep 242 | lr 2.9e-05 | train 0.1691 acc 0.952 | test 1.5339 acc 0.6704
+  Ep 243 | lr 2.8e-05 | train 0.1697 acc 0.953 | test 1.5207 acc 0.6733
+  Ep 244 | lr 2.7e-05 | train 0.1710 acc 0.951 | test 1.5229 acc 0.6731
+  Ep 245 | lr 2.6e-05 | train 0.1636 acc 0.954 | test 1.5382 acc 0.6720
+  Ep 246 | lr 2.5e-05 | train 0.1680 acc 0.952 | test 1.5285 acc 0.6724
+  Ep 247 | lr 2.4e-05 | train 0.1642 acc 0.954 | test 1.5355 acc 0.6690
+  Ep 248 | lr 2.3e-05 | train 0.1686 acc 0.953 | test 1.5354 acc 0.6715
+  Ep 249 | lr 2.2e-05 | train 0.1604 acc 0.955 | test 1.5390 acc 0.6694
+  Ep 250 | lr 2.1e-05 | train 0.1612 acc 0.954 | test 1.5241 acc 0.6698
+  Ep 251 | lr 2.1e-05 | train 0.1623 acc 0.955 | test 1.5375 acc 0.6702
+  Ep 252 | lr 2.0e-05 | train 0.1558 acc 0.956 | test 1.5311 acc 0.6722
+  Ep 253 | lr 1.9e-05 | train 0.1598 acc 0.955 | test 1.5221 acc 0.6720
+  Ep 254 | lr 1.8e-05 | train 0.1588 acc 0.955 | test 1.5240 acc 0.6725
+  Ep 255 | lr 1.7e-05 | train 0.1555 acc 0.956 | test 1.5259 acc 0.6709
+  Ep 256 | lr 1.7e-05 | train 0.1608 acc 0.955 | test 1.5233 acc 0.6722
+  Ep 257 | lr 1.6e-05 | train 0.1600 acc 0.954 | test 1.5309 acc 0.6729
+  Ep 258 | lr 1.5e-05 | train 0.1599 acc 0.955 | test 1.5218 acc 0.6735
+  Ep 259 | lr 1.5e-05 | train 0.1554 acc 0.957 | test 1.5217 acc 0.6731
+  Ep 260 | lr 1.4e-05 | train 0.1517 acc 0.958 | test 1.5205 acc 0.6730
+  Ep 261 | lr 1.3e-05 | train 0.1537 acc 0.957 | test 1.5262 acc 0.6728
+  Ep 262 | lr 1.3e-05 | train 0.1487 acc 0.959 | test 1.5258 acc 0.6724
+  Ep 263 | lr 1.2e-05 | train 0.1536 acc 0.957 | test 1.5282 acc 0.6718
+  Ep 264 | lr 1.1e-05 | train 0.1494 acc 0.959 | test 1.5250 acc 0.6699
+  Ep 265 | lr 1.1e-05 | train 0.1517 acc 0.958 | test 1.5173 acc 0.6725
+  Ep 266 | lr 1.0e-05 | train 0.1501 acc 0.958 | test 1.5220 acc 0.6729
+  Ep 267 | lr 9.5e-06 | train 0.1507 acc 0.958 | test 1.5205 acc 0.6749
+  Ep 268 | lr 8.9e-06 | train 0.1538 acc 0.957 | test 1.5190 acc 0.6727
+  Ep 269 | lr 8.4e-06 | train 0.1455 acc 0.958 | test 1.5234 acc 0.6739
+  Ep 270 | lr 7.9e-06 | train 0.1519 acc 0.957 | test 1.5203 acc 0.6736
+  Ep 271 | lr 7.3e-06 | train 0.1523 acc 0.958 | test 1.5182 acc 0.6758 ★
+  Ep 272 | lr 6.8e-06 | train 0.1456 acc 0.960 | test 1.5183 acc 0.6749
+  Ep 273 | lr 6.4e-06 | train 0.1489 acc 0.959 | test 1.5169 acc 0.6741
+  Ep 274 | lr 5.9e-06 | train 0.1503 acc 0.958 | test 1.5164 acc 0.6742
+  Ep 275 | lr 5.5e-06 | train 0.1460 acc 0.960 | test 1.5124 acc 0.6765 ★
+  Ep 276 | lr 5.0e-06 | train 0.1457 acc 0.958 | test 1.5182 acc 0.6764
+  Ep 277 | lr 4.6e-06 | train 0.1461 acc 0.959 | test 1.5185 acc 0.6753
+  Ep 278 | lr 4.2e-06 | train 0.1464 acc 0.960 | test 1.5164 acc 0.6754
+  Ep 279 | lr 3.9e-06 | train 0.1425 acc 0.960 | test 1.5172 acc 0.6759
+  Ep 280 | lr 3.5e-06 | train 0.1493 acc 0.958 | test 1.5174 acc 0.6753
+  Ep 281 | lr 3.2e-06 | train 0.1418 acc 0.962 | test 1.5153 acc 0.6769 ★
+  Ep 282 | lr 2.8e-06 | train 0.1443 acc 0.960 | test 1.5166 acc 0.6763
+  Ep 283 | lr 2.5e-06 | train 0.1420 acc 0.961 | test 1.5171 acc 0.6758
+  Ep 284 | lr 2.2e-06 | train 0.1454 acc 0.959 | test 1.5165 acc 0.6753
+  Ep 285 | lr 2.0e-06 | train 0.1457 acc 0.959 | test 1.5149 acc 0.6760
+  Ep 286 | lr 1.7e-06 | train 0.1442 acc 0.959 | test 1.5155 acc 0.6755
+  Ep 287 | lr 1.5e-06 | train 0.1439 acc 0.959 | test 1.5132 acc 0.6759
+  Ep 288 | lr 1.3e-06 | train 0.1485 acc 0.958 | test 1.5141 acc 0.6760
+  Ep 289 | lr 1.1e-06 | train 0.1450 acc 0.960 | test 1.5153 acc 0.6753
+  Ep 290 | lr 8.8e-07 | train 0.1435 acc 0.961 | test 1.5131 acc 0.6765
+  Ep 291 | lr 7.1e-07 | train 0.1399 acc 0.961 | test 1.5145 acc 0.6759
+  Ep 292 | lr 5.6e-07 | train 0.1416 acc 0.960 | test 1.5144 acc 0.6769 ★
+  Ep 293 | lr 4.3e-07 | train 0.1417 acc 0.961 | test 1.5158 acc 0.6762
+  Ep 294 | lr 3.2e-07 | train 0.1467 acc 0.959 | test 1.5147 acc 0.6770 ★
+  Ep 295 | lr 2.2e-07 | train 0.1458 acc 0.960 | test 1.5156 acc 0.6759
+  Ep 296 | lr 1.4e-07 | train 0.1441 acc 0.960 | test 1.5166 acc 0.6747
+  Ep 297 | lr 7.9e-08 | train 0.1395 acc 0.961 | test 1.5196 acc 0.6759
+  Ep 298 | lr 3.5e-08 | train 0.1442 acc 0.960 | test 1.5158 acc 0.6770 ★
+  Ep 299 | lr 8.8e-09 | train 0.1468 acc 0.960 | test 1.5146 acc 0.6767
+  Ep 300 | lr 0.0e+00 | train 0.1457 acc 0.960 | test 1.5179 acc 0.6761
+
+  Done in 268.2 min. Best: 0.6770 @ epoch 294
+  Saved: results/stats3seed/step2_vanilla_seed123_20260613_031520.json
+
+# vanilla seed=123 done in 4.5h, OK
+  best_acc=0.6770 @ epoch 294
+
+############################################################
+# [3/9] vanilla  seed=777
+############################################################
+/home/lab/miniconda3/lib/python3.13/site-packages/torchvision/datasets/cifar.py:83: VisibleDeprecationWarning: dtype(): align should be passed as Python or NumPy boolean but got `align=0`. Did you mean to pass a tuple to create a subarray type? (Deprecated NumPy 2.4)
+  entry = pickle.load(f, encoding="latin1")
+Device: cuda (NVIDIA RTX PRO 6000 Blackwell Workstation Edition)
+
+============================================================
+  PC-S³ Step 2 + Aug: VANILLA
+  Params: 6,549,572  |  d=160  L=8  patch=4
+  epochs=300  batch=128  wd=0.05
+  Aug: RandAugment(N=2,M=9) + RandomErasing(0.25)
+============================================================
+  Ep   1 | lr 6.0e-05 | train 4.3819 acc 0.047 | test 4.0999 acc 0.0803 ★
+  Ep   2 | lr 9.0e-05 | train 4.1021 acc 0.082 | test 3.8496 acc 0.1205 ★
+  Ep   3 | lr 1.2e-04 | train 3.8805 acc 0.116 | test 3.5422 acc 0.1743 ★
+  Ep   4 | lr 1.5e-04 | train 3.6311 acc 0.154 | test 3.2448 acc 0.2296 ★
+  Ep   5 | lr 1.8e-04 | train 3.3835 acc 0.198 | test 3.0343 acc 0.2652 ★
+  Ep   6 | lr 2.1e-04 | train 3.1618 acc 0.235 | test 2.7954 acc 0.3098 ★
+  Ep   7 | lr 2.4e-04 | train 2.9719 acc 0.271 | test 2.6275 acc 0.3356 ★
+  Ep   8 | lr 2.7e-04 | train 2.8167 acc 0.302 | test 2.4679 acc 0.3696 ★
+  Ep   9 | lr 3.0e-04 | train 2.6802 acc 0.327 | test 2.3508 acc 0.3959 ★
+  Ep  10 | lr 3.0e-04 | train 2.5689 acc 0.349 | test 2.2349 acc 0.4186 ★
+  Ep  11 | lr 3.0e-04 | train 2.4613 acc 0.369 | test 2.1525 acc 0.4360 ★
+  Ep  12 | lr 3.0e-04 | train 2.3441 acc 0.397 | test 2.0489 acc 0.4600 ★
+  Ep  13 | lr 3.0e-04 | train 2.2596 acc 0.414 | test 1.9827 acc 0.4702 ★
+  Ep  14 | lr 3.0e-04 | train 2.1802 acc 0.430 | test 1.9106 acc 0.4927 ★
+  Ep  15 | lr 3.0e-04 | train 2.1156 acc 0.446 | test 1.9003 acc 0.4943 ★
+  Ep  16 | lr 3.0e-04 | train 2.0391 acc 0.461 | test 1.7908 acc 0.5198 ★
+  Ep  17 | lr 3.0e-04 | train 1.9850 acc 0.470 | test 1.7813 acc 0.5209 ★
+  Ep  18 | lr 3.0e-04 | train 1.9303 acc 0.485 | test 1.7608 acc 0.5273 ★
+  Ep  19 | lr 3.0e-04 | train 1.8774 acc 0.497 | test 1.7213 acc 0.5334 ★
+  Ep  20 | lr 3.0e-04 | train 1.8288 acc 0.509 | test 1.6891 acc 0.5455 ★
+  Ep  21 | lr 3.0e-04 | train 1.7684 acc 0.520 | test 1.6536 acc 0.5541 ★
+  Ep  22 | lr 3.0e-04 | train 1.7287 acc 0.531 | test 1.5957 acc 0.5629 ★
+  Ep  23 | lr 3.0e-04 | train 1.6864 acc 0.544 | test 1.5551 acc 0.5740 ★
+  Ep  24 | lr 3.0e-04 | train 1.6536 acc 0.548 | test 1.5615 acc 0.5716
+  Ep  25 | lr 3.0e-04 | train 1.6221 acc 0.558 | test 1.5288 acc 0.5799 ★
+  Ep  26 | lr 3.0e-04 | train 1.5771 acc 0.569 | test 1.5408 acc 0.5833 ★
+  Ep  27 | lr 3.0e-04 | train 1.5382 acc 0.578 | test 1.5099 acc 0.5904 ★
+  Ep  28 | lr 3.0e-04 | train 1.5193 acc 0.581 | test 1.4794 acc 0.5990 ★
+  Ep  29 | lr 3.0e-04 | train 1.4875 acc 0.588 | test 1.4601 acc 0.5986
+  Ep  30 | lr 3.0e-04 | train 1.4535 acc 0.596 | test 1.4631 acc 0.6004 ★
+  Ep  31 | lr 3.0e-04 | train 1.4245 acc 0.603 | test 1.4458 acc 0.6044 ★
+  Ep  32 | lr 3.0e-04 | train 1.3920 acc 0.613 | test 1.4467 acc 0.6003
+  Ep  33 | lr 3.0e-04 | train 1.3689 acc 0.613 | test 1.4283 acc 0.6149 ★
+  Ep  34 | lr 2.9e-04 | train 1.3508 acc 0.621 | test 1.4145 acc 0.6146
+  Ep  35 | lr 2.9e-04 | train 1.3171 acc 0.629 | test 1.4364 acc 0.6108
+  Ep  36 | lr 2.9e-04 | train 1.2982 acc 0.634 | test 1.4445 acc 0.6074
+  Ep  37 | lr 2.9e-04 | train 1.2804 acc 0.639 | test 1.4090 acc 0.6159 ★
+  Ep  38 | lr 2.9e-04 | train 1.2498 acc 0.649 | test 1.3958 acc 0.6195 ★
+  Ep  39 | lr 2.9e-04 | train 1.2246 acc 0.652 | test 1.4029 acc 0.6145
+  Ep  40 | lr 2.9e-04 | train 1.2059 acc 0.660 | test 1.3924 acc 0.6217 ★
+  Ep  41 | lr 2.9e-04 | train 1.1821 acc 0.665 | test 1.4173 acc 0.6177
+  Ep  42 | lr 2.9e-04 | train 1.1753 acc 0.667 | test 1.4038 acc 0.6229 ★
+  Ep  43 | lr 2.9e-04 | train 1.1493 acc 0.672 | test 1.3783 acc 0.6238 ★
+  Ep  44 | lr 2.9e-04 | train 1.1175 acc 0.683 | test 1.4176 acc 0.6185
+  Ep  45 | lr 2.9e-04 | train 1.1120 acc 0.684 | test 1.3781 acc 0.6246 ★
+  Ep  46 | lr 2.9e-04 | train 1.0897 acc 0.690 | test 1.3642 acc 0.6304 ★
+  Ep  47 | lr 2.9e-04 | train 1.0673 acc 0.692 | test 1.3808 acc 0.6311 ★
+  Ep  48 | lr 2.9e-04 | train 1.0511 acc 0.699 | test 1.3880 acc 0.6295
+  Ep  49 | lr 2.9e-04 | train 1.0355 acc 0.703 | test 1.3915 acc 0.6323 ★
+  Ep  50 | lr 2.9e-04 | train 1.0212 acc 0.705 | test 1.3967 acc 0.6309
+  Ep  51 | lr 2.9e-04 | train 1.0139 acc 0.707 | test 1.3497 acc 0.6366 ★
+  Ep  52 | lr 2.8e-04 | train 0.9960 acc 0.713 | test 1.3546 acc 0.6395 ★
+  Ep  53 | lr 2.8e-04 | train 0.9800 acc 0.717 | test 1.3678 acc 0.6344
+  Ep  54 | lr 2.8e-04 | train 0.9573 acc 0.722 | test 1.3361 acc 0.6425 ★
+  Ep  55 | lr 2.8e-04 | train 0.9535 acc 0.722 | test 1.3474 acc 0.6443 ★
+  Ep  56 | lr 2.8e-04 | train 0.9340 acc 0.728 | test 1.3357 acc 0.6429
+  Ep  57 | lr 2.8e-04 | train 0.9139 acc 0.733 | test 1.3611 acc 0.6412
+  Ep  58 | lr 2.8e-04 | train 0.9122 acc 0.736 | test 1.3647 acc 0.6385
+  Ep  59 | lr 2.8e-04 | train 0.8930 acc 0.742 | test 1.3602 acc 0.6418
+  Ep  60 | lr 2.8e-04 | train 0.8930 acc 0.741 | test 1.3680 acc 0.6479 ★
+  Ep  61 | lr 2.8e-04 | train 0.8752 acc 0.745 | test 1.3564 acc 0.6450
+  Ep  62 | lr 2.8e-04 | train 0.8483 acc 0.752 | test 1.3717 acc 0.6438
+  Ep  63 | lr 2.8e-04 | train 0.8481 acc 0.755 | test 1.3644 acc 0.6420
+  Ep  64 | lr 2.8e-04 | train 0.8327 acc 0.757 | test 1.3901 acc 0.6359
+  Ep  65 | lr 2.7e-04 | train 0.8125 acc 0.762 | test 1.3614 acc 0.6443
+  Ep  66 | lr 2.7e-04 | train 0.8219 acc 0.761 | test 1.3992 acc 0.6410
+  Ep  67 | lr 2.7e-04 | train 0.7963 acc 0.768 | test 1.4326 acc 0.6373
+  Ep  68 | lr 2.7e-04 | train 0.7853 acc 0.770 | test 1.4226 acc 0.6392
+  Ep  69 | lr 2.7e-04 | train 0.7768 acc 0.774 | test 1.4003 acc 0.6399
+  Ep  70 | lr 2.7e-04 | train 0.7816 acc 0.773 | test 1.3702 acc 0.6439
+  Ep  71 | lr 2.7e-04 | train 0.7552 acc 0.782 | test 1.4245 acc 0.6361
+  Ep  72 | lr 2.7e-04 | train 0.7517 acc 0.782 | test 1.4141 acc 0.6388
+  Ep  73 | lr 2.7e-04 | train 0.7384 acc 0.784 | test 1.3755 acc 0.6489 ★
+  Ep  74 | lr 2.7e-04 | train 0.7256 acc 0.791 | test 1.4404 acc 0.6353
+  Ep  75 | lr 2.6e-04 | train 0.7179 acc 0.790 | test 1.4180 acc 0.6409
+  Ep  76 | lr 2.6e-04 | train 0.7001 acc 0.796 | test 1.4427 acc 0.6375
+  Ep  77 | lr 2.6e-04 | train 0.7136 acc 0.792 | test 1.4168 acc 0.6462
+  Ep  78 | lr 2.6e-04 | train 0.6938 acc 0.799 | test 1.3875 acc 0.6465
+  Ep  79 | lr 2.6e-04 | train 0.6794 acc 0.802 | test 1.4200 acc 0.6426
+  Ep  80 | lr 2.6e-04 | train 0.6849 acc 0.801 | test 1.4388 acc 0.6397
+  Ep  81 | lr 2.6e-04 | train 0.6744 acc 0.802 | test 1.4460 acc 0.6352
+  Ep  82 | lr 2.6e-04 | train 0.6686 acc 0.807 | test 1.4364 acc 0.6440
+  Ep  83 | lr 2.6e-04 | train 0.6547 acc 0.810 | test 1.4665 acc 0.6368
+  Ep  84 | lr 2.5e-04 | train 0.6515 acc 0.810 | test 1.4249 acc 0.6436
+  Ep  85 | lr 2.5e-04 | train 0.6400 acc 0.812 | test 1.4636 acc 0.6410
+  Ep  86 | lr 2.5e-04 | train 0.6266 acc 0.817 | test 1.4758 acc 0.6409
+  Ep  87 | lr 2.5e-04 | train 0.6273 acc 0.818 | test 1.4372 acc 0.6463
+  Ep  88 | lr 2.5e-04 | train 0.6199 acc 0.820 | test 1.4205 acc 0.6491 ★
+  Ep  89 | lr 2.5e-04 | train 0.6199 acc 0.821 | test 1.4151 acc 0.6481
+  Ep  90 | lr 2.5e-04 | train 0.6135 acc 0.823 | test 1.4588 acc 0.6442
+  Ep  91 | lr 2.5e-04 | train 0.6023 acc 0.825 | test 1.4419 acc 0.6453
+  Ep  92 | lr 2.4e-04 | train 0.5945 acc 0.827 | test 1.4384 acc 0.6476
+  Ep  93 | lr 2.4e-04 | train 0.5928 acc 0.825 | test 1.4689 acc 0.6483
+  Ep  94 | lr 2.4e-04 | train 0.5759 acc 0.831 | test 1.4538 acc 0.6460
+  Ep  95 | lr 2.4e-04 | train 0.5834 acc 0.830 | test 1.4327 acc 0.6517 ★
+  Ep  96 | lr 2.4e-04 | train 0.5631 acc 0.835 | test 1.4835 acc 0.6419
+  Ep  97 | lr 2.4e-04 | train 0.5690 acc 0.835 | test 1.4882 acc 0.6419
+  Ep  98 | lr 2.4e-04 | train 0.5590 acc 0.839 | test 1.4975 acc 0.6419
+  Ep  99 | lr 2.4e-04 | train 0.5552 acc 0.839 | test 1.4551 acc 0.6502
+  Ep 100 | lr 2.3e-04 | train 0.5542 acc 0.838 | test 1.4441 acc 0.6522 ★
+  Ep 101 | lr 2.3e-04 | train 0.5424 acc 0.842 | test 1.4636 acc 0.6463
+  Ep 102 | lr 2.3e-04 | train 0.5381 acc 0.844 | test 1.4719 acc 0.6465
+  Ep 103 | lr 2.3e-04 | train 0.5329 acc 0.846 | test 1.4857 acc 0.6453
+  Ep 104 | lr 2.3e-04 | train 0.5218 acc 0.848 | test 1.4736 acc 0.6487
+  Ep 105 | lr 2.3e-04 | train 0.5322 acc 0.844 | test 1.4675 acc 0.6459
+  Ep 106 | lr 2.3e-04 | train 0.5229 acc 0.848 | test 1.4727 acc 0.6474
+  Ep 107 | lr 2.2e-04 | train 0.5078 acc 0.853 | test 1.4565 acc 0.6520
+  Ep 108 | lr 2.2e-04 | train 0.5075 acc 0.852 | test 1.4453 acc 0.6518
+  Ep 109 | lr 2.2e-04 | train 0.5032 acc 0.854 | test 1.5147 acc 0.6427
+  Ep 110 | lr 2.2e-04 | train 0.4919 acc 0.856 | test 1.4702 acc 0.6519
+  Ep 111 | lr 2.2e-04 | train 0.4892 acc 0.858 | test 1.4950 acc 0.6472
+  Ep 112 | lr 2.2e-04 | train 0.4836 acc 0.859 | test 1.4548 acc 0.6534 ★
+  Ep 113 | lr 2.2e-04 | train 0.4802 acc 0.861 | test 1.4727 acc 0.6498
+  Ep 114 | lr 2.1e-04 | train 0.4744 acc 0.862 | test 1.4591 acc 0.6529
+  Ep 115 | lr 2.1e-04 | train 0.4758 acc 0.861 | test 1.4650 acc 0.6527
+  Ep 116 | lr 2.1e-04 | train 0.4727 acc 0.864 | test 1.4629 acc 0.6529
+  Ep 117 | lr 2.1e-04 | train 0.4744 acc 0.861 | test 1.4778 acc 0.6503
+  Ep 118 | lr 2.1e-04 | train 0.4599 acc 0.867 | test 1.4684 acc 0.6567 ★
+  Ep 119 | lr 2.1e-04 | train 0.4586 acc 0.868 | test 1.4476 acc 0.6613 ★
+  Ep 120 | lr 2.1e-04 | train 0.4586 acc 0.868 | test 1.4703 acc 0.6552
+  Ep 121 | lr 2.0e-04 | train 0.4502 acc 0.869 | test 1.4927 acc 0.6520
+  Ep 122 | lr 2.0e-04 | train 0.4545 acc 0.868 | test 1.4714 acc 0.6590
+  Ep 123 | lr 2.0e-04 | train 0.4454 acc 0.871 | test 1.4691 acc 0.6592
+  Ep 124 | lr 2.0e-04 | train 0.4350 acc 0.873 | test 1.4713 acc 0.6500
+  Ep 125 | lr 2.0e-04 | train 0.4265 acc 0.876 | test 1.4991 acc 0.6515
+  Ep 126 | lr 2.0e-04 | train 0.4313 acc 0.875 | test 1.4716 acc 0.6566
+  Ep 127 | lr 1.9e-04 | train 0.4228 acc 0.877 | test 1.4682 acc 0.6588
+  Ep 128 | lr 1.9e-04 | train 0.4245 acc 0.877 | test 1.4543 acc 0.6600
+  Ep 129 | lr 1.9e-04 | train 0.4181 acc 0.880 | test 1.4953 acc 0.6512
+  Ep 130 | lr 1.9e-04 | train 0.4193 acc 0.880 | test 1.4774 acc 0.6552
+  Ep 131 | lr 1.9e-04 | train 0.4136 acc 0.880 | test 1.4617 acc 0.6601
+  Ep 132 | lr 1.9e-04 | train 0.4186 acc 0.879 | test 1.5006 acc 0.6512
+  Ep 133 | lr 1.9e-04 | train 0.4126 acc 0.880 | test 1.4928 acc 0.6549
+  Ep 134 | lr 1.8e-04 | train 0.4006 acc 0.885 | test 1.4850 acc 0.6542
+  Ep 135 | lr 1.8e-04 | train 0.4099 acc 0.882 | test 1.4778 acc 0.6540
+  Ep 136 | lr 1.8e-04 | train 0.3952 acc 0.886 | test 1.4981 acc 0.6578
+  Ep 137 | lr 1.8e-04 | train 0.3952 acc 0.887 | test 1.4771 acc 0.6599
+  Ep 138 | lr 1.8e-04 | train 0.3826 acc 0.890 | test 1.4709 acc 0.6603
+  Ep 139 | lr 1.8e-04 | train 0.3870 acc 0.888 | test 1.4814 acc 0.6571
+  Ep 140 | lr 1.7e-04 | train 0.3813 acc 0.890 | test 1.4881 acc 0.6597
+  Ep 141 | lr 1.7e-04 | train 0.3787 acc 0.891 | test 1.4997 acc 0.6548
+  Ep 142 | lr 1.7e-04 | train 0.3735 acc 0.891 | test 1.4988 acc 0.6518
+  Ep 143 | lr 1.7e-04 | train 0.3672 acc 0.894 | test 1.5084 acc 0.6569
+  Ep 144 | lr 1.7e-04 | train 0.3682 acc 0.894 | test 1.5168 acc 0.6542
+  Ep 145 | lr 1.7e-04 | train 0.3628 acc 0.895 | test 1.4876 acc 0.6589
+  Ep 146 | lr 1.6e-04 | train 0.3665 acc 0.896 | test 1.5182 acc 0.6551
+  Ep 147 | lr 1.6e-04 | train 0.3638 acc 0.894 | test 1.5143 acc 0.6545
+  Ep 148 | lr 1.6e-04 | train 0.3539 acc 0.898 | test 1.5133 acc 0.6565
+  Ep 149 | lr 1.6e-04 | train 0.3587 acc 0.898 | test 1.5246 acc 0.6561
+  Ep 150 | lr 1.6e-04 | train 0.3501 acc 0.900 | test 1.4959 acc 0.6567
+  Ep 151 | lr 1.6e-04 | train 0.3456 acc 0.901 | test 1.5177 acc 0.6590
+  Ep 152 | lr 1.5e-04 | train 0.3426 acc 0.900 | test 1.5154 acc 0.6541
+  Ep 153 | lr 1.5e-04 | train 0.3366 acc 0.903 | test 1.5196 acc 0.6544
+  Ep 154 | lr 1.5e-04 | train 0.3402 acc 0.902 | test 1.5138 acc 0.6589
+  Ep 155 | lr 1.5e-04 | train 0.3388 acc 0.902 | test 1.5609 acc 0.6484
+  Ep 156 | lr 1.5e-04 | train 0.3315 acc 0.902 | test 1.5129 acc 0.6555
+  Ep 157 | lr 1.5e-04 | train 0.3340 acc 0.904 | test 1.5228 acc 0.6580
+  Ep 158 | lr 1.5e-04 | train 0.3302 acc 0.905 | test 1.5255 acc 0.6540
+  Ep 159 | lr 1.4e-04 | train 0.3275 acc 0.905 | test 1.5236 acc 0.6525
+  Ep 160 | lr 1.4e-04 | train 0.3274 acc 0.907 | test 1.5079 acc 0.6581
+  Ep 161 | lr 1.4e-04 | train 0.3168 acc 0.908 | test 1.5154 acc 0.6576
+  Ep 162 | lr 1.4e-04 | train 0.3193 acc 0.908 | test 1.5286 acc 0.6585
+  Ep 163 | lr 1.4e-04 | train 0.3070 acc 0.913 | test 1.5038 acc 0.6588
+  Ep 164 | lr 1.4e-04 | train 0.3101 acc 0.912 | test 1.5267 acc 0.6525
+  Ep 165 | lr 1.3e-04 | train 0.3118 acc 0.912 | test 1.5230 acc 0.6612
+  Ep 166 | lr 1.3e-04 | train 0.3156 acc 0.910 | test 1.5272 acc 0.6621 ★
+  Ep 167 | lr 1.3e-04 | train 0.3102 acc 0.911 | test 1.5348 acc 0.6583
+  Ep 168 | lr 1.3e-04 | train 0.3059 acc 0.913 | test 1.5188 acc 0.6602
+  Ep 169 | lr 1.3e-04 | train 0.3024 acc 0.914 | test 1.5180 acc 0.6599
+  Ep 170 | lr 1.3e-04 | train 0.2925 acc 0.916 | test 1.5316 acc 0.6580
+  Ep 171 | lr 1.2e-04 | train 0.2968 acc 0.915 | test 1.5184 acc 0.6625 ★
+  Ep 172 | lr 1.2e-04 | train 0.2879 acc 0.917 | test 1.5235 acc 0.6593
+  Ep 173 | lr 1.2e-04 | train 0.2916 acc 0.915 | test 1.5078 acc 0.6635 ★
+  Ep 174 | lr 1.2e-04 | train 0.2879 acc 0.917 | test 1.5193 acc 0.6599
+  Ep 175 | lr 1.2e-04 | train 0.2928 acc 0.916 | test 1.5452 acc 0.6601
+  Ep 176 | lr 1.2e-04 | train 0.2789 acc 0.919 | test 1.5325 acc 0.6635 ★
+  Ep 177 | lr 1.1e-04 | train 0.2813 acc 0.919 | test 1.5341 acc 0.6626
+  Ep 178 | lr 1.1e-04 | train 0.2792 acc 0.921 | test 1.5215 acc 0.6682 ★
+  Ep 179 | lr 1.1e-04 | train 0.2733 acc 0.921 | test 1.5266 acc 0.6605
+  Ep 180 | lr 1.1e-04 | train 0.2832 acc 0.918 | test 1.5327 acc 0.6622
+  Ep 181 | lr 1.1e-04 | train 0.2749 acc 0.921 | test 1.5109 acc 0.6676
+  Ep 182 | lr 1.1e-04 | train 0.2687 acc 0.923 | test 1.5287 acc 0.6622
+  Ep 183 | lr 1.1e-04 | train 0.2694 acc 0.923 | test 1.5341 acc 0.6670
+  Ep 184 | lr 1.0e-04 | train 0.2647 acc 0.924 | test 1.5128 acc 0.6666
+  Ep 185 | lr 1.0e-04 | train 0.2647 acc 0.925 | test 1.4984 acc 0.6651
+  Ep 186 | lr 1.0e-04 | train 0.2589 acc 0.926 | test 1.4893 acc 0.6667
+  Ep 187 | lr 9.9e-05 | train 0.2611 acc 0.925 | test 1.5082 acc 0.6676
+  Ep 188 | lr 9.8e-05 | train 0.2606 acc 0.927 | test 1.5127 acc 0.6650
+  Ep 189 | lr 9.6e-05 | train 0.2526 acc 0.928 | test 1.5196 acc 0.6642
+  Ep 190 | lr 9.4e-05 | train 0.2517 acc 0.927 | test 1.5341 acc 0.6619
+  Ep 191 | lr 9.3e-05 | train 0.2455 acc 0.930 | test 1.5112 acc 0.6634
+  Ep 192 | lr 9.1e-05 | train 0.2442 acc 0.930 | test 1.5468 acc 0.6577
+  Ep 193 | lr 9.0e-05 | train 0.2473 acc 0.929 | test 1.5265 acc 0.6597
+  Ep 194 | lr 8.8e-05 | train 0.2372 acc 0.933 | test 1.5338 acc 0.6672
+  Ep 195 | lr 8.7e-05 | train 0.2390 acc 0.933 | test 1.5256 acc 0.6663
+  Ep 196 | lr 8.6e-05 | train 0.2423 acc 0.932 | test 1.5298 acc 0.6630
+  Ep 197 | lr 8.4e-05 | train 0.2371 acc 0.933 | test 1.5282 acc 0.6647
+  Ep 198 | lr 8.3e-05 | train 0.2318 acc 0.934 | test 1.5380 acc 0.6628
+  Ep 199 | lr 8.1e-05 | train 0.2359 acc 0.934 | test 1.5144 acc 0.6670
+  Ep 200 | lr 8.0e-05 | train 0.2339 acc 0.933 | test 1.5232 acc 0.6674
+  Ep 201 | lr 7.8e-05 | train 0.2328 acc 0.934 | test 1.5255 acc 0.6678
+  Ep 202 | lr 7.7e-05 | train 0.2275 acc 0.935 | test 1.5078 acc 0.6726 ★
+  Ep 203 | lr 7.5e-05 | train 0.2256 acc 0.936 | test 1.5172 acc 0.6707
+  Ep 204 | lr 7.4e-05 | train 0.2190 acc 0.937 | test 1.5301 acc 0.6663
+  Ep 205 | lr 7.3e-05 | train 0.2191 acc 0.937 | test 1.5163 acc 0.6702
+  Ep 206 | lr 7.1e-05 | train 0.2227 acc 0.938 | test 1.5243 acc 0.6676
+  Ep 207 | lr 7.0e-05 | train 0.2140 acc 0.940 | test 1.5158 acc 0.6689
+  Ep 208 | lr 6.9e-05 | train 0.2249 acc 0.936 | test 1.5121 acc 0.6723
+  Ep 209 | lr 6.7e-05 | train 0.2109 acc 0.940 | test 1.5299 acc 0.6639
+  Ep 210 | lr 6.6e-05 | train 0.2125 acc 0.941 | test 1.5343 acc 0.6701
+  Ep 211 | lr 6.4e-05 | train 0.2100 acc 0.942 | test 1.5449 acc 0.6662
+  Ep 212 | lr 6.3e-05 | train 0.2188 acc 0.939 | test 1.5228 acc 0.6695
+  Ep 213 | lr 6.2e-05 | train 0.2042 acc 0.942 | test 1.5397 acc 0.6673
+  Ep 214 | lr 6.1e-05 | train 0.2049 acc 0.943 | test 1.5379 acc 0.6661
+  Ep 215 | lr 5.9e-05 | train 0.2101 acc 0.940 | test 1.5483 acc 0.6692
+  Ep 216 | lr 5.8e-05 | train 0.2077 acc 0.941 | test 1.5301 acc 0.6688
+  Ep 217 | lr 5.7e-05 | train 0.1981 acc 0.943 | test 1.5349 acc 0.6659
+  Ep 218 | lr 5.5e-05 | train 0.1985 acc 0.944 | test 1.5282 acc 0.6667
+  Ep 219 | lr 5.4e-05 | train 0.1991 acc 0.943 | test 1.5224 acc 0.6693
+  Ep 220 | lr 5.3e-05 | train 0.1966 acc 0.945 | test 1.5358 acc 0.6701
+  Ep 221 | lr 5.2e-05 | train 0.1998 acc 0.943 | test 1.5164 acc 0.6692
+  Ep 222 | lr 5.0e-05 | train 0.1984 acc 0.944 | test 1.5272 acc 0.6688
+  Ep 223 | lr 4.9e-05 | train 0.1965 acc 0.944 | test 1.5245 acc 0.6723
+  Ep 224 | lr 4.8e-05 | train 0.1910 acc 0.946 | test 1.5279 acc 0.6716
+  Ep 225 | lr 4.7e-05 | train 0.1873 acc 0.947 | test 1.5215 acc 0.6710
+  Ep 226 | lr 4.6e-05 | train 0.1913 acc 0.946 | test 1.5294 acc 0.6733 ★
+  Ep 227 | lr 4.5e-05 | train 0.1866 acc 0.946 | test 1.5431 acc 0.6687
+  Ep 228 | lr 4.3e-05 | train 0.1884 acc 0.947 | test 1.5188 acc 0.6729
+  Ep 229 | lr 4.2e-05 | train 0.1841 acc 0.948 | test 1.5231 acc 0.6726
+  Ep 230 | lr 4.1e-05 | train 0.1846 acc 0.948 | test 1.5181 acc 0.6740 ★
+  Ep 231 | lr 4.0e-05 | train 0.1855 acc 0.949 | test 1.5254 acc 0.6675
+  Ep 232 | lr 3.9e-05 | train 0.1804 acc 0.950 | test 1.5242 acc 0.6700
+  Ep 233 | lr 3.8e-05 | train 0.1795 acc 0.950 | test 1.5295 acc 0.6681
+  Ep 234 | lr 3.7e-05 | train 0.1765 acc 0.950 | test 1.5226 acc 0.6660
+  Ep 235 | lr 3.6e-05 | train 0.1775 acc 0.951 | test 1.5143 acc 0.6731
+  Ep 236 | lr 3.5e-05 | train 0.1709 acc 0.952 | test 1.5238 acc 0.6694
+  Ep 237 | lr 3.4e-05 | train 0.1728 acc 0.952 | test 1.5108 acc 0.6729
+  Ep 238 | lr 3.3e-05 | train 0.1679 acc 0.953 | test 1.5233 acc 0.6720
+  Ep 239 | lr 3.2e-05 | train 0.1768 acc 0.950 | test 1.5224 acc 0.6735
+  Ep 240 | lr 3.1e-05 | train 0.1717 acc 0.951 | test 1.5239 acc 0.6703
+  Ep 241 | lr 3.0e-05 | train 0.1710 acc 0.952 | test 1.5171 acc 0.6703
+  Ep 242 | lr 2.9e-05 | train 0.1690 acc 0.952 | test 1.5152 acc 0.6723
+  Ep 243 | lr 2.8e-05 | train 0.1682 acc 0.953 | test 1.5097 acc 0.6753 ★
+  Ep 244 | lr 2.7e-05 | train 0.1652 acc 0.954 | test 1.5151 acc 0.6713
+  Ep 245 | lr 2.6e-05 | train 0.1670 acc 0.954 | test 1.5101 acc 0.6756 ★
+  Ep 246 | lr 2.5e-05 | train 0.1684 acc 0.953 | test 1.5052 acc 0.6741
+  Ep 247 | lr 2.4e-05 | train 0.1675 acc 0.953 | test 1.5106 acc 0.6743
+  Ep 248 | lr 2.3e-05 | train 0.1635 acc 0.955 | test 1.5084 acc 0.6755
+  Ep 249 | lr 2.2e-05 | train 0.1631 acc 0.954 | test 1.5017 acc 0.6741
+  Ep 250 | lr 2.1e-05 | train 0.1610 acc 0.955 | test 1.5054 acc 0.6750
+  Ep 251 | lr 2.1e-05 | train 0.1628 acc 0.954 | test 1.5035 acc 0.6734
+  Ep 252 | lr 2.0e-05 | train 0.1605 acc 0.954 | test 1.5196 acc 0.6744
+  Ep 253 | lr 1.9e-05 | train 0.1585 acc 0.956 | test 1.5112 acc 0.6752
+  Ep 254 | lr 1.8e-05 | train 0.1585 acc 0.956 | test 1.5142 acc 0.6744
+  Ep 255 | lr 1.7e-05 | train 0.1558 acc 0.957 | test 1.5135 acc 0.6776 ★
+  Ep 256 | lr 1.7e-05 | train 0.1570 acc 0.955 | test 1.5112 acc 0.6757
+  Ep 257 | lr 1.6e-05 | train 0.1562 acc 0.955 | test 1.5071 acc 0.6738
+  Ep 258 | lr 1.5e-05 | train 0.1588 acc 0.956 | test 1.5113 acc 0.6767
+  Ep 259 | lr 1.5e-05 | train 0.1560 acc 0.956 | test 1.5047 acc 0.6774
+  Ep 260 | lr 1.4e-05 | train 0.1510 acc 0.958 | test 1.5057 acc 0.6772
+  Ep 261 | lr 1.3e-05 | train 0.1484 acc 0.958 | test 1.5120 acc 0.6748
+  Ep 262 | lr 1.3e-05 | train 0.1492 acc 0.957 | test 1.5068 acc 0.6751
+  Ep 263 | lr 1.2e-05 | train 0.1495 acc 0.958 | test 1.5052 acc 0.6785 ★
+  Ep 264 | lr 1.1e-05 | train 0.1477 acc 0.959 | test 1.5122 acc 0.6771
+  Ep 265 | lr 1.1e-05 | train 0.1498 acc 0.958 | test 1.5059 acc 0.6757
+  Ep 266 | lr 1.0e-05 | train 0.1465 acc 0.959 | test 1.5111 acc 0.6760
+  Ep 267 | lr 9.5e-06 | train 0.1479 acc 0.959 | test 1.5105 acc 0.6755
+  Ep 268 | lr 8.9e-06 | train 0.1550 acc 0.956 | test 1.5033 acc 0.6776
+  Ep 269 | lr 8.4e-06 | train 0.1500 acc 0.957 | test 1.5095 acc 0.6764
+  Ep 270 | lr 7.9e-06 | train 0.1413 acc 0.961 | test 1.5073 acc 0.6770
+  Ep 271 | lr 7.3e-06 | train 0.1439 acc 0.959 | test 1.5039 acc 0.6796 ★
+  Ep 272 | lr 6.8e-06 | train 0.1473 acc 0.958 | test 1.5062 acc 0.6789
+  Ep 273 | lr 6.4e-06 | train 0.1431 acc 0.960 | test 1.5041 acc 0.6765
+  Ep 274 | lr 5.9e-06 | train 0.1449 acc 0.959 | test 1.5071 acc 0.6781
+  Ep 275 | lr 5.5e-06 | train 0.1465 acc 0.959 | test 1.5057 acc 0.6796 ★
+  Ep 276 | lr 5.0e-06 | train 0.1417 acc 0.961 | test 1.5044 acc 0.6785
+  Ep 277 | lr 4.6e-06 | train 0.1416 acc 0.962 | test 1.5075 acc 0.6781
+  Ep 278 | lr 4.2e-06 | train 0.1438 acc 0.960 | test 1.5034 acc 0.6793
+  Ep 279 | lr 3.9e-06 | train 0.1440 acc 0.960 | test 1.5125 acc 0.6781
+  Ep 280 | lr 3.5e-06 | train 0.1360 acc 0.962 | test 1.5070 acc 0.6779
+  Ep 281 | lr 3.2e-06 | train 0.1415 acc 0.960 | test 1.5065 acc 0.6787
+  Ep 282 | lr 2.8e-06 | train 0.1441 acc 0.959 | test 1.5058 acc 0.6792
+  Ep 283 | lr 2.5e-06 | train 0.1429 acc 0.960 | test 1.5052 acc 0.6787
+  Ep 284 | lr 2.2e-06 | train 0.1377 acc 0.961 | test 1.5068 acc 0.6787
+  Ep 285 | lr 2.0e-06 | train 0.1375 acc 0.962 | test 1.5060 acc 0.6783
+  Ep 286 | lr 1.7e-06 | train 0.1430 acc 0.961 | test 1.5059 acc 0.6779
+  Ep 287 | lr 1.5e-06 | train 0.1433 acc 0.960 | test 1.5050 acc 0.6798 ★
+  Ep 288 | lr 1.3e-06 | train 0.1450 acc 0.959 | test 1.5026 acc 0.6790
+  Ep 289 | lr 1.1e-06 | train 0.1389 acc 0.961 | test 1.5020 acc 0.6803 ★
+  Ep 290 | lr 8.8e-07 | train 0.1436 acc 0.960 | test 1.5008 acc 0.6806 ★
+  Ep 291 | lr 7.1e-07 | train 0.1398 acc 0.961 | test 1.5040 acc 0.6798
+  Ep 292 | lr 5.6e-07 | train 0.1404 acc 0.960 | test 1.5027 acc 0.6805
+  Ep 293 | lr 4.3e-07 | train 0.1367 acc 0.962 | test 1.5047 acc 0.6790
+  Ep 294 | lr 3.2e-07 | train 0.1399 acc 0.962 | test 1.5027 acc 0.6805
+  Ep 295 | lr 2.2e-07 | train 0.1398 acc 0.961 | test 1.5013 acc 0.6805
+  Ep 296 | lr 1.4e-07 | train 0.1443 acc 0.961 | test 1.5019 acc 0.6787
+  Ep 297 | lr 7.9e-08 | train 0.1458 acc 0.960 | test 1.5024 acc 0.6794
+  Ep 298 | lr 3.5e-08 | train 0.1419 acc 0.961 | test 1.5041 acc 0.6791
+  Ep 299 | lr 8.8e-09 | train 0.1432 acc 0.959 | test 1.5043 acc 0.6797
+  Ep 300 | lr 0.0e+00 | train 0.1404 acc 0.961 | test 1.5035 acc 0.6789
+
+  Done in 268.2 min. Best: 0.6806 @ epoch 290
+  Saved: results/stats3seed/step2_vanilla_seed777_20260613_074335.json
+
+# vanilla seed=777 done in 4.5h, OK
+  best_acc=0.6806 @ epoch 290
+
+############################################################
+# [4/9] concat  seed=42
+############################################################
+/home/lab/miniconda3/lib/python3.13/site-packages/torchvision/datasets/cifar.py:83: VisibleDeprecationWarning: dtype(): align should be passed as Python or NumPy boolean but got `align=0`. Did you mean to pass a tuple to create a subarray type? (Deprecated NumPy 2.4)
+  entry = pickle.load(f, encoding="latin1")
+Device: cuda (NVIDIA RTX PRO 6000 Blackwell Workstation Edition)
+
+============================================================
+  PC-S³ Step 2 + Aug: CONCAT
+  Params: 6,549,572  |  d=160  L=8  patch=4
+  epochs=300  batch=128  wd=0.05
+  Aug: RandAugment(N=2,M=9) + RandomErasing(0.25)
+============================================================
+  Ep   1 | lr 6.0e-05 | train 4.3726 acc 0.051 | test 4.0888 acc 0.0842 ★
+  Ep   2 | lr 9.0e-05 | train 4.0983 acc 0.085 | test 3.8352 acc 0.1323 ★
+  Ep   3 | lr 1.2e-04 | train 3.8512 acc 0.120 | test 3.5137 acc 0.1818 ★
+  Ep   4 | lr 1.5e-04 | train 3.6016 acc 0.161 | test 3.2184 acc 0.2314 ★
+  Ep   5 | lr 1.8e-04 | train 3.3577 acc 0.203 | test 2.9779 acc 0.2834 ★
+  Ep   6 | lr 2.1e-04 | train 3.1578 acc 0.239 | test 2.7750 acc 0.3182 ★
+  Ep   7 | lr 2.4e-04 | train 2.9811 acc 0.270 | test 2.6308 acc 0.3433 ★
+  Ep   8 | lr 2.7e-04 | train 2.8340 acc 0.296 | test 2.5080 acc 0.3671 ★
+  Ep   9 | lr 3.0e-04 | train 2.7116 acc 0.321 | test 2.3489 acc 0.4004 ★
+  Ep  10 | lr 3.0e-04 | train 2.6069 acc 0.343 | test 2.2259 acc 0.4218 ★
+  Ep  11 | lr 3.0e-04 | train 2.4858 acc 0.365 | test 2.1363 acc 0.4417 ★
+  Ep  12 | lr 3.0e-04 | train 2.3822 acc 0.388 | test 2.0941 acc 0.4531 ★
+  Ep  13 | lr 3.0e-04 | train 2.2881 acc 0.408 | test 2.0169 acc 0.4642 ★
+  Ep  14 | lr 3.0e-04 | train 2.2005 acc 0.428 | test 1.9886 acc 0.4785 ★
+  Ep  15 | lr 3.0e-04 | train 2.1376 acc 0.439 | test 1.9108 acc 0.4935 ★
+  Ep  16 | lr 3.0e-04 | train 2.0588 acc 0.457 | test 1.8235 acc 0.5138 ★
