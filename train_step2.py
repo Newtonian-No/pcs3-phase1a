@@ -6,6 +6,15 @@ from torchvision import datasets, transforms
 from pathlib import Path
 from pcs3_step2 import Step2Model
 
+PRED_MODE_DEFAULTS = {
+    "gen_error_k1_pred001": 0.001,
+    "gen_error_k1_pred003": 0.003,
+    "gen_error_k1_pred01": 0.01,
+    "gen_error_k2_pred001": 0.001,
+    "gen_error_k2_pred003": 0.003,
+    "gen_error_k2_pred01": 0.01,
+}
+
 def get_cifar100(data_dir='./data', batch_size=128, num_workers=4):
     train_transform = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -25,22 +34,47 @@ def get_cifar100(data_dir='./data', batch_size=128, num_workers=4):
     test_loader  = DataLoader(test_set, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
     return train_loader, test_loader
 
-def train_epoch(model, loader, optimizer, criterion, device, grad_clip=1.0):
+def train_epoch(model, loader, optimizer, criterion, device,
+                grad_clip=1.0, lambda_pred=0.0, lambda_vel=0.5):
     model.train()
     total_loss, correct, total = 0, 0, 0
+    total_cls_loss, total_pred_loss = 0, 0
+    total_pos_loss, total_vel_loss = 0, 0
+    total_error_norm, total_vel_error_norm = 0, 0
     for x, y in loader:
         x, y = x.to(device), y.to(device)
         optimizer.zero_grad()
-        logits = model(x)
-        loss = criterion(logits, y)
+        if lambda_pred > 0:
+            logits, aux = model(x, return_aux=True)
+        else:
+            logits, aux = model(x), {}
+        cls_loss = criterion(logits, y)
+        pos_loss = aux.get("pos_loss", cls_loss.new_zeros(()))
+        vel_loss = aux.get("vel_loss", cls_loss.new_zeros(()))
+        pred_loss = pos_loss + lambda_vel * vel_loss
+        loss = cls_loss + lambda_pred * pred_loss
         loss.backward()
         if grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
         optimizer.step()
         total_loss += loss.item() * x.size(0)
+        total_cls_loss += cls_loss.item() * x.size(0)
+        total_pred_loss += pred_loss.item() * x.size(0)
+        total_pos_loss += pos_loss.item() * x.size(0)
+        total_vel_loss += vel_loss.item() * x.size(0)
+        total_error_norm += aux.get("error_norm", cls_loss.new_zeros(())).item() * x.size(0)
+        total_vel_error_norm += aux.get("vel_error_norm", cls_loss.new_zeros(())).item() * x.size(0)
         correct += (logits.argmax(1) == y).sum().item()
         total += x.size(0)
-    return total_loss / total, correct / total
+    metrics = {
+        "cls_loss": total_cls_loss / total,
+        "pred_loss": total_pred_loss / total,
+        "pos_loss": total_pos_loss / total,
+        "vel_loss": total_vel_loss / total,
+        "error_norm": total_error_norm / total,
+        "vel_error_norm": total_vel_error_norm / total,
+    }
+    return total_loss / total, correct / total, metrics
 
 @torch.no_grad()
 def evaluate(model, loader, criterion, device):
@@ -134,7 +168,13 @@ def main():
                         help='Skip overfit sanity check (Karpathy)')
     parser.add_argument('--overfit_steps', type=int, default=50,
                         help='Iterations for overfit check')
+    parser.add_argument('--lambda_pred', type=float, default=None,
+                        help='Weight for auxiliary prediction loss. Defaults are inferred for *_pred* modes; otherwise 0.')
+    parser.add_argument('--lambda_vel', type=float, default=0.5,
+                        help='Velocity loss weight inside pred_loss for K=2 modes')
     args = parser.parse_args()
+    if args.lambda_pred is None:
+        args.lambda_pred = PRED_MODE_DEFAULTS.get(args.mode, 0.0)
 
     # Set all seeds
     import random, numpy as np
@@ -168,6 +208,7 @@ def main():
     print(f"  PC-S³ Step 2 + Aug: {args.mode.upper()}")
     print(f"  Params: {params:,}  |  d={args.d_model}  L={args.n_layers}  patch={args.patch_size}")
     print(f"  epochs={args.epochs}  batch={args.batch_size}  wd={args.weight_decay}")
+    print(f"  pred_loss: lambda_pred={args.lambda_pred:g}  lambda_vel={args.lambda_vel:g}")
     print(f"  Aug: RandAugment(N=2,M=9) + RandomErasing(0.25)")
     print(f"{'='*60}")
 
@@ -191,7 +232,10 @@ def main():
     t0 = time.time()
 
     for epoch in range(1, args.epochs + 1):
-        train_loss, train_acc = train_epoch(model, train_loader, optimizer, criterion, device, args.grad_clip)
+        train_loss, train_acc, train_metrics = train_epoch(
+            model, train_loader, optimizer, criterion, device, args.grad_clip,
+            lambda_pred=args.lambda_pred, lambda_vel=args.lambda_vel
+        )
         test_loss, test_acc = evaluate(model, test_loader, criterion, device)
         scheduler.step()
 
@@ -200,20 +244,28 @@ def main():
             best_epoch = epoch
 
         history.append({"epoch": epoch, "train_loss": train_loss, "train_acc": train_acc,
-                        "test_loss": test_loss, "test_acc": test_acc})
+                        "test_loss": test_loss, "test_acc": test_acc,
+                        **{f"train_{k}": v for k, v in train_metrics.items()}})
 
         # Flush checkpoint every epoch — survives crash/power-loss
         if epoch % args.ckpt_interval == 0 or epoch == args.epochs:
             tmp = ckpt_file.with_suffix('.checkpoint.tmp')
             with open(tmp, 'w') as f:
                 json.dump({"mode": args.mode, "seed": args.seed,
+                           "lambda_pred": args.lambda_pred, "lambda_vel": args.lambda_vel,
                            "best_acc": best_acc, "best_epoch": best_epoch,
                            "current_epoch": epoch, "history": history}, f)
             tmp.rename(ckpt_file)
 
         lr_now = optimizer.param_groups[0]['lr']
         marker = " ★" if test_acc == best_acc else ""
-        print(f"  Ep {epoch:3d} | lr {lr_now:.1e} | train {train_loss:.4f} acc {train_acc:.3f} | test {test_loss:.4f} acc {test_acc:.4f}{marker}")
+        pred_msg = ""
+        if args.lambda_pred > 0:
+            pred_msg = (f" | pred {train_metrics['pred_loss']:.4f}"
+                        f" pos {train_metrics['pos_loss']:.4f}"
+                        f" vel {train_metrics['vel_loss']:.4f}"
+                        f" enorm {train_metrics['error_norm']:.3f}")
+        print(f"  Ep {epoch:3d} | lr {lr_now:.1e} | train {train_loss:.4f} acc {train_acc:.3f} | test {test_loss:.4f} acc {test_acc:.4f}{pred_msg}{marker}")
 
     elapsed = time.time() - t0
     print(f"\n  Done in {elapsed/60:.1f} min. Best: {best_acc:.4f} @ epoch {best_epoch}")
@@ -221,6 +273,7 @@ def main():
     out_file = out_dir / f"step2_{args.mode}_seed{args.seed}_{time.strftime('%Y%m%d_%H%M%S')}.json"
     with open(out_file, 'w') as f:
         json.dump({"mode": args.mode, "seed": args.seed, "best_acc": best_acc, "best_epoch": best_epoch,
+                   "lambda_pred": args.lambda_pred, "lambda_vel": args.lambda_vel,
                    "n_params": params, "time": elapsed, "history": history}, f, indent=2)
     print(f"  Saved: {out_file}")
 

@@ -53,12 +53,20 @@ class SelfPredictor(nn.Module):
         if K >= 2:
             self.vel_head = nn.Linear(d_model, d_model, bias=False)
 
-    def forward(self, h, x):
+    def forward(self, h, x, return_aux=False):
         # Position error (always computed)
-        pos_error = x - self.net(h)
+        pred_pos = self.net(h)
+        pos_error = x - pred_pos
+
+        aux = None
+        if return_aux:
+            aux = {
+                "pos_loss": F.smooth_l1_loss(pred_pos, x.detach()),
+                "error_norm": pos_error.detach().norm(dim=-1).mean(),
+            }
 
         if self.K == 1:
-            return pos_error
+            return (pos_error, aux) if return_aux else pos_error
 
         # Velocity error: finite-diff ground truth vs predicted
         # x' ≈ x[t] - x[t-1], pad first position as zeros
@@ -66,7 +74,26 @@ class SelfPredictor(nn.Module):
         pred_vel = self.vel_head(h)
         vel_error = x_vel - pred_vel
 
+        if return_aux:
+            aux["vel_loss"] = F.smooth_l1_loss(pred_vel, x_vel.detach())
+            aux["vel_error_norm"] = vel_error.detach().norm(dim=-1).mean()
+            return torch.cat([pos_error, vel_error], dim=-1), aux
+
         return torch.cat([pos_error, vel_error], dim=-1)  # (B, L, K*D)
+
+
+def _error_order_from_mode(mode):
+    if mode.startswith("gen_error_k2") or mode in ("gen_error", "gen_error_shuffled"):
+        return 2
+    return 1
+
+
+def _mode_uses_concat_path(mode):
+    return mode.startswith("gen_error") or mode in ("concat", "concat_shuffled")
+
+
+def _mode_shuffles_error(mode):
+    return mode in ("concat_shuffled", "gen_error_shuffled")
 
 
 class Step2Model(nn.Module):
@@ -88,7 +115,7 @@ class Step2Model(nn.Module):
         self.use_conv_stem = use_conv_stem
 
         # K: error order — 1 for scalar, 2 for generalized (pos+vel)
-        self.K = 2 if mode in ("gen_error", "gen_error_shuffled") else 1
+        self.K = _error_order_from_mode(mode)
 
         if use_conv_stem:
             self.stem = ConvStem(3, 128)
@@ -106,7 +133,7 @@ class Step2Model(nn.Module):
             nn.Linear(d_model, num_classes),
         )
 
-    def forward(self, x):
+    def forward(self, x, return_aux=False):
         if x.dim() == 2:
             x = x.view(-1, 3, 32, 32)
 
@@ -126,28 +153,47 @@ class Step2Model(nn.Module):
         # Compute PCN errors
         if self.mode == "vanilla":
             out = x.mean(dim=1)
-            return self.classifier(out)
+            logits = self.classifier(out)
+            return (logits, {}) if return_aux else logits
 
         # Re-inject prediction error into later blocks
         pcn_idx = 0
+        aux_records = []
         for i in range(self.n_layers):
             if (i + 1) % self.pcn_interval == 0 and pcn_idx < 3:
                 h = snapshots[pcn_idx]
-                error = self.predictors[pcn_idx](h, x)
+                pred_out = self.predictors[pcn_idx](h, x, return_aux=return_aux)
+                if return_aux:
+                    error, aux = pred_out
+                    aux_records.append(aux)
+                else:
+                    error = pred_out
 
-                if self.mode in ("concat_shuffled", "gen_error_shuffled"):
+                if _mode_shuffles_error(self.mode):
                     idx = torch.randperm(error.size(0), device=error.device)
                     error = error[idx]
 
                 # Map gen_error modes to concat SSM path
-                ssm_mode = "concat" if self.mode in ("gen_error", "gen_error_shuffled") else self.mode
+                ssm_mode = "concat" if _mode_uses_concat_path(self.mode) else self.mode
                 x = self.blocks[i](x, error=error, mode=ssm_mode)
                 pcn_idx += 1
             else:
                 x = self.blocks[i](x, error=None, mode="vanilla")
 
         out = x.mean(dim=1)
-        return self.classifier(out)
+        logits = self.classifier(out)
+        if not return_aux:
+            return logits
+
+        if not aux_records:
+            return logits, {}
+
+        keys = set().union(*(r.keys() for r in aux_records if r))
+        aux_mean = {
+            k: torch.stack([r[k] for r in aux_records if k in r]).mean()
+            for k in keys
+        }
+        return logits, aux_mean
 
 
 def count_params(model):
@@ -155,7 +201,7 @@ def count_params(model):
 
 
 if __name__ == "__main__":
-    for mode in ["vanilla", "concat", "gen_error", "gen_error_shuffled"]:
+    for mode in ["vanilla", "concat", "gen_error", "gen_error_shuffled", "gen_error_k1_pred001", "gen_error_k2_pred001"]:
         m = Step2Model(mode=mode)
         x = torch.randn(4, 3, 32, 32)
         y = m(x)
