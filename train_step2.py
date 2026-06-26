@@ -16,6 +16,7 @@ PRED_MODE_DEFAULTS = {
     "gen_error_k3_pred001": 0.001,
     "gen_error_k3_pred003": 0.003,
     "gen_error_k3_pred01": 0.01,
+    "gen_error_k3_shuffled_pred003": 0.003,
 }
 
 def get_cifar100(data_dir='./data', batch_size=128, num_workers=4):

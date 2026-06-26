@@ -111,7 +111,7 @@ def _mode_uses_concat_path(mode):
 
 
 def _mode_shuffles_error(mode):
-    return mode in ("concat_shuffled", "gen_error_shuffled")
+    return mode in ("concat_shuffled", "gen_error_shuffled") or "shuffled" in mode
 
 
 class Step2Model(nn.Module):
@@ -219,7 +219,7 @@ def count_params(model):
 
 
 if __name__ == "__main__":
-    for mode in ["vanilla", "concat", "gen_error", "gen_error_shuffled", "gen_error_k1_pred001", "gen_error_k2_pred001"]:
+    for mode in ["vanilla", "concat", "gen_error", "gen_error_shuffled", "gen_error_k1_pred001", "gen_error_k2_pred001", "gen_error_k3_shuffled_pred003"]:
         m = Step2Model(mode=mode)
         x = torch.randn(4, 3, 32, 32)
         y = m(x)
