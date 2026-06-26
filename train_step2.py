@@ -13,6 +13,9 @@ PRED_MODE_DEFAULTS = {
     "gen_error_k2_pred001": 0.001,
     "gen_error_k2_pred003": 0.003,
     "gen_error_k2_pred01": 0.01,
+    "gen_error_k3_pred001": 0.001,
+    "gen_error_k3_pred003": 0.003,
+    "gen_error_k3_pred01": 0.01,
 }
 
 def get_cifar100(data_dir='./data', batch_size=128, num_workers=4):
@@ -35,12 +38,13 @@ def get_cifar100(data_dir='./data', batch_size=128, num_workers=4):
     return train_loader, test_loader
 
 def train_epoch(model, loader, optimizer, criterion, device,
-                grad_clip=1.0, lambda_pred=0.0, lambda_vel=0.5):
+                grad_clip=1.0, lambda_pred=0.0, lambda_vel=0.5,
+                lambda_acc=0.25):
     model.train()
     total_loss, correct, total = 0, 0, 0
     total_cls_loss, total_pred_loss = 0, 0
-    total_pos_loss, total_vel_loss = 0, 0
-    total_error_norm, total_vel_error_norm = 0, 0
+    total_pos_loss, total_vel_loss, total_acc_loss = 0, 0, 0
+    total_error_norm, total_vel_error_norm, total_acc_error_norm = 0, 0, 0
     for x, y in loader:
         x, y = x.to(device), y.to(device)
         optimizer.zero_grad()
@@ -51,7 +55,8 @@ def train_epoch(model, loader, optimizer, criterion, device,
         cls_loss = criterion(logits, y)
         pos_loss = aux.get("pos_loss", cls_loss.new_zeros(()))
         vel_loss = aux.get("vel_loss", cls_loss.new_zeros(()))
-        pred_loss = pos_loss + lambda_vel * vel_loss
+        acc_loss = aux.get("acc_loss", cls_loss.new_zeros(()))
+        pred_loss = pos_loss + lambda_vel * vel_loss + lambda_acc * acc_loss
         loss = cls_loss + lambda_pred * pred_loss
         loss.backward()
         if grad_clip > 0:
@@ -62,8 +67,10 @@ def train_epoch(model, loader, optimizer, criterion, device,
         total_pred_loss += pred_loss.item() * x.size(0)
         total_pos_loss += pos_loss.item() * x.size(0)
         total_vel_loss += vel_loss.item() * x.size(0)
+        total_acc_loss += acc_loss.item() * x.size(0)
         total_error_norm += aux.get("error_norm", cls_loss.new_zeros(())).item() * x.size(0)
         total_vel_error_norm += aux.get("vel_error_norm", cls_loss.new_zeros(())).item() * x.size(0)
+        total_acc_error_norm += aux.get("acc_error_norm", cls_loss.new_zeros(())).item() * x.size(0)
         correct += (logits.argmax(1) == y).sum().item()
         total += x.size(0)
     metrics = {
@@ -71,8 +78,10 @@ def train_epoch(model, loader, optimizer, criterion, device,
         "pred_loss": total_pred_loss / total,
         "pos_loss": total_pos_loss / total,
         "vel_loss": total_vel_loss / total,
+        "acc_loss": total_acc_loss / total,
         "error_norm": total_error_norm / total,
         "vel_error_norm": total_vel_error_norm / total,
+        "acc_error_norm": total_acc_error_norm / total,
     }
     return total_loss / total, correct / total, metrics
 
@@ -172,6 +181,8 @@ def main():
                         help='Weight for auxiliary prediction loss. Defaults are inferred for *_pred* modes; otherwise 0.')
     parser.add_argument('--lambda_vel', type=float, default=0.5,
                         help='Velocity loss weight inside pred_loss for K=2 modes')
+    parser.add_argument('--lambda_acc', type=float, default=0.25,
+                        help='Acceleration loss weight inside pred_loss for K=3 modes')
     args = parser.parse_args()
     if args.lambda_pred is None:
         args.lambda_pred = PRED_MODE_DEFAULTS.get(args.mode, 0.0)
@@ -208,7 +219,7 @@ def main():
     print(f"  PC-S³ Step 2 + Aug: {args.mode.upper()}")
     print(f"  Params: {params:,}  |  d={args.d_model}  L={args.n_layers}  patch={args.patch_size}")
     print(f"  epochs={args.epochs}  batch={args.batch_size}  wd={args.weight_decay}")
-    print(f"  pred_loss: lambda_pred={args.lambda_pred:g}  lambda_vel={args.lambda_vel:g}")
+    print(f"  pred_loss: lambda_pred={args.lambda_pred:g}  lambda_vel={args.lambda_vel:g}  lambda_acc={args.lambda_acc:g}")
     print(f"  Aug: RandAugment(N=2,M=9) + RandomErasing(0.25)")
     print(f"{'='*60}")
 
@@ -234,7 +245,8 @@ def main():
     for epoch in range(1, args.epochs + 1):
         train_loss, train_acc, train_metrics = train_epoch(
             model, train_loader, optimizer, criterion, device, args.grad_clip,
-            lambda_pred=args.lambda_pred, lambda_vel=args.lambda_vel
+            lambda_pred=args.lambda_pred, lambda_vel=args.lambda_vel,
+            lambda_acc=args.lambda_acc
         )
         test_loss, test_acc = evaluate(model, test_loader, criterion, device)
         scheduler.step()
@@ -253,6 +265,7 @@ def main():
             with open(tmp, 'w') as f:
                 json.dump({"mode": args.mode, "seed": args.seed,
                            "lambda_pred": args.lambda_pred, "lambda_vel": args.lambda_vel,
+                           "lambda_acc": args.lambda_acc,
                            "best_acc": best_acc, "best_epoch": best_epoch,
                            "current_epoch": epoch, "history": history}, f)
             tmp.rename(ckpt_file)
@@ -264,6 +277,7 @@ def main():
             pred_msg = (f" | pred {train_metrics['pred_loss']:.4f}"
                         f" pos {train_metrics['pos_loss']:.4f}"
                         f" vel {train_metrics['vel_loss']:.4f}"
+                        f" acc {train_metrics['acc_loss']:.4f}"
                         f" enorm {train_metrics['error_norm']:.3f}")
         print(f"  Ep {epoch:3d} | lr {lr_now:.1e} | train {train_loss:.4f} acc {train_acc:.3f} | test {test_loss:.4f} acc {test_acc:.4f}{pred_msg}{marker}")
 
@@ -274,6 +288,7 @@ def main():
     with open(out_file, 'w') as f:
         json.dump({"mode": args.mode, "seed": args.seed, "best_acc": best_acc, "best_epoch": best_epoch,
                    "lambda_pred": args.lambda_pred, "lambda_vel": args.lambda_vel,
+                   "lambda_acc": args.lambda_acc,
                    "n_params": params, "time": elapsed, "history": history}, f, indent=2)
     print(f"  Saved: {out_file}")
 

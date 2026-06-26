@@ -40,6 +40,7 @@ class SelfPredictor(nn.Module):
     K=1: scalar error e = x - x̂  (original SelfPredictor)
     K=2: generalized error ẽ = [x - x̂, x' - x̂']  (pos + velocity)
          where x' is finite-difference velocity and x̂' = vel_head(h)
+    K=3: ẽ = [position, velocity, acceleration] errors.
     """
     def __init__(self, d_model, K=1):
         super().__init__()
@@ -52,6 +53,8 @@ class SelfPredictor(nn.Module):
         )
         if K >= 2:
             self.vel_head = nn.Linear(d_model, d_model, bias=False)
+        if K >= 3:
+            self.acc_head = nn.Linear(d_model, d_model, bias=False)
 
     def forward(self, h, x, return_aux=False):
         # Position error (always computed)
@@ -77,12 +80,27 @@ class SelfPredictor(nn.Module):
         if return_aux:
             aux["vel_loss"] = F.smooth_l1_loss(pred_vel, x_vel.detach())
             aux["vel_error_norm"] = vel_error.detach().norm(dim=-1).mean()
-            return torch.cat([pos_error, vel_error], dim=-1), aux
 
-        return torch.cat([pos_error, vel_error], dim=-1)  # (B, L, K*D)
+        if self.K == 2:
+            error = torch.cat([pos_error, vel_error], dim=-1)
+            return (error, aux) if return_aux else error
+
+        # Acceleration error: second finite difference, padded to sequence length.
+        x_acc = F.pad(x[:, 2:, :] - 2 * x[:, 1:-1, :] + x[:, :-2, :], (0, 0, 0, 2))
+        pred_acc = self.acc_head(h)
+        acc_error = x_acc - pred_acc
+
+        if return_aux:
+            aux["acc_loss"] = F.smooth_l1_loss(pred_acc, x_acc.detach())
+            aux["acc_error_norm"] = acc_error.detach().norm(dim=-1).mean()
+            return torch.cat([pos_error, vel_error, acc_error], dim=-1), aux
+
+        return torch.cat([pos_error, vel_error, acc_error], dim=-1)  # (B, L, K*D)
 
 
 def _error_order_from_mode(mode):
+    if mode.startswith("gen_error_k3") or mode == "gen_error_k3":
+        return 3
     if mode.startswith("gen_error_k2") or mode in ("gen_error", "gen_error_shuffled"):
         return 2
     return 1
@@ -114,7 +132,7 @@ class Step2Model(nn.Module):
         self.pcn_interval = pcn_interval
         self.use_conv_stem = use_conv_stem
 
-        # K: error order — 1 for scalar, 2 for generalized (pos+vel)
+        # K: error order — 1 for scalar, 2 for pos+vel, 3 for pos+vel+acc.
         self.K = _error_order_from_mode(mode)
 
         if use_conv_stem:
