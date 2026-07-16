@@ -1,7 +1,10 @@
 import hashlib
 import json
+import subprocess
+import sys
 
 import numpy as np
+import pytest
 
 from temporal_mamba.datasets.temporal_logic import (
     FORMULA_FAMILIES,
@@ -126,3 +129,21 @@ def test_reverse_and_shuffle_recompute_truth_deterministically(tmp_path):
         query = dataset.query_at(5)
         assert bool(item["target"]) == evaluate_query(item["signal"], query)
     assert base.data_seed == manifest["data_seed"]
+
+
+@pytest.mark.parametrize(
+    "module",
+    [
+        "temporal_mamba.datasets.temporal_logic",
+        "temporal_mamba.datasets.uci_har",
+    ],
+)
+def test_dataset_module_cli_does_not_trigger_runpy_warning(module):
+    result = subprocess.run(
+        [sys.executable, "-m", module, "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "RuntimeWarning" not in result.stderr
