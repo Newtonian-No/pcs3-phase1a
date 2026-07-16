@@ -748,21 +748,39 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
-    data_root = args.data_root or Path("data") / json.loads(
-        args.config.read_text(encoding="utf-8")
-    )["dataset"]
-    result = run_training(
-        config_path=args.config,
-        variant=args.variant,
-        seed=args.seed,
-        data_root=data_root,
-        artifact_root=args.artifact_root,
-        device=args.device,
-        epochs_override=args.epochs,
-        resume=not args.no_resume,
-        num_workers=args.num_workers,
-        overfit_only=args.overfit_only,
-    )
+    raw_config = json.loads(args.config.read_text(encoding="utf-8"))
+    data_root = args.data_root or Path("data") / raw_config["dataset"]
+    try:
+        result = run_training(
+            config_path=args.config,
+            variant=args.variant,
+            seed=args.seed,
+            data_root=data_root,
+            artifact_root=args.artifact_root,
+            device=args.device,
+            epochs_override=args.epochs,
+            resume=not args.no_resume,
+            num_workers=args.num_workers,
+            overfit_only=args.overfit_only,
+        )
+    except Exception as error:
+        run_id = f"{raw_config['dataset']}-{args.variant}-seed{args.seed}"
+        run_dir = args.artifact_root / run_id
+        failure_path = run_dir / "failure.json"
+        if not failure_path.exists():
+            component = error.component if isinstance(error, NumericalFailure) else "setup"
+            write_failure_artifact(
+                failure_path,
+                run_id=run_id,
+                epoch=-1,
+                batch=-1,
+                tensor_name=component,
+                error=error,
+                last_healthy_checkpoint=(
+                    run_dir / "last.pt" if (run_dir / "last.pt").exists() else None
+                ),
+            )
+        raise
     print(json.dumps(result, indent=2, sort_keys=True))
 
 

@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -123,6 +124,7 @@ def run_matrix(
     config_dir = Path(config_dir)
     status_path = artifact_root / "matrix_status.jsonl"
     completed: list[str] = []
+    pycache_root = Path(tempfile.gettempdir()) / f"pcs3-pycache-{_git_commit()[:12]}"
 
     for spec in specs:
         expected = _expected_metadata(
@@ -167,7 +169,10 @@ def run_matrix(
             command.extend(["--device", device])
         started = datetime.now(timezone.utc).isoformat()
         _append_status(status_path, {"run_id": spec.run_id, "event": "start", "time": started})
-        result = subprocess.run(command, check=False)
+        environment = os.environ.copy()
+        environment["PYTHONPYCACHEPREFIX"] = str(pycache_root)
+        environment["PYTHONHASHSEED"] = str(spec.seed)
+        result = subprocess.run(command, check=False, env=environment)
         ended = datetime.now(timezone.utc).isoformat()
         _append_status(
             status_path,

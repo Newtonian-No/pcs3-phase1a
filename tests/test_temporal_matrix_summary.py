@@ -1,7 +1,9 @@
 import json
+from types import SimpleNamespace
 
 import pytest
 
+from temporal_mamba import run_matrix as run_matrix_module
 from temporal_mamba.config import TRAINING_SEEDS, VARIANTS
 from temporal_mamba.run_matrix import expand_matrix, run_matrix
 from temporal_mamba.summarize import summarize_matrix, validate_matrix
@@ -106,3 +108,31 @@ def test_matrix_dry_run_lists_without_mutation(tmp_path):
     )
     assert result == [spec.run_id for spec in specs]
     assert not (tmp_path / "artifacts").exists()
+
+
+def test_matrix_subprocess_uses_isolated_python_bytecode_cache(tmp_path, monkeypatch):
+    spec = expand_matrix(
+        datasets=("temporal_logic",),
+        variants=("vanilla",),
+        seeds=(42,),
+    )[0]
+    captured = {}
+
+    def fake_run(command, *, check, env):
+        captured["command"] = command
+        captured["check"] = check
+        captured["env"] = env
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(run_matrix_module, "_git_commit", lambda: "abc123")
+    monkeypatch.setattr(run_matrix_module.subprocess, "run", fake_run)
+    completed = run_matrix(
+        [spec],
+        artifact_root=tmp_path / "artifacts",
+        data_root=tmp_path / "data",
+        config_dir=tmp_path / "missing-configs",
+    )
+    assert completed == [spec.run_id]
+    assert captured["check"] is False
+    assert captured["env"]["PYTHONPYCACHEPREFIX"]
+    assert "pcs3" in captured["env"]["PYTHONPYCACHEPREFIX"]
