@@ -72,23 +72,27 @@ def _find_dataset_dir(root: Path) -> Path:
     return sorted(candidates, key=lambda path: (len(path.parts), str(path)))[0]
 
 
-def _download_archive(path: Path) -> None:
+def _download_archive(path: Path, url: str) -> None:
     temporary = path.with_name(path.name + ".tmp")
-    with urllib.request.urlopen(UCI_HAR_URL, timeout=120) as response, temporary.open("wb") as target:
+    with urllib.request.urlopen(url, timeout=120) as response, temporary.open("wb") as target:
         shutil.copyfileobj(response, target, length=1024 * 1024)
         target.flush()
         os.fsync(target.fileno())
     os.replace(temporary, path)
 
 
-def download_uci_har(root: str | Path) -> dict[str, object]:
+def download_uci_har(
+    root: str | Path,
+    *,
+    download_url: str = UCI_HAR_URL,
+) -> dict[str, object]:
     """Download and securely extract the official archive with provenance."""
 
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
     archive_path = root / "human_activity_recognition_using_smartphones.zip"
     if not archive_path.exists():
-        _download_archive(archive_path)
+        _download_archive(archive_path, download_url)
 
     extracted = root / "extracted"
     outer_members: list[str] = []
@@ -128,6 +132,8 @@ def download_uci_har(root: str | Path) -> dict[str, object]:
     manifest: dict[str, object] = {
         "schema_version": 1,
         "url": UCI_HAR_URL,
+        "source_url": UCI_HAR_URL,
+        "download_url": download_url,
         "archive_name": archive_path.name,
         "archive_sha256": _sha256_file(archive_path),
         "archive_size": archive_path.stat().st_size,
@@ -168,6 +174,8 @@ def _fixture_source_manifest(root: Path) -> dict[str, object]:
     manifest: dict[str, object] = {
         "schema_version": 1,
         "url": None,
+        "source_url": None,
+        "download_url": None,
         "archive_name": None,
         "archive_sha256": None,
         "archive_size": 0,
@@ -178,7 +186,12 @@ def _fixture_source_manifest(root: Path) -> dict[str, object]:
     return manifest
 
 
-def prepare_uci_har(root: str | Path, data_seed: int = 20260716) -> dict[str, object]:
+def prepare_uci_har(
+    root: str | Path,
+    data_seed: int = 20260716,
+    *,
+    download_url: str = UCI_HAR_URL,
+) -> dict[str, object]:
     """Prepare normalized NPZ splits using a fixed held-out subject subset."""
 
     root = Path(root)
@@ -186,7 +199,7 @@ def prepare_uci_har(root: str | Path, data_seed: int = 20260716) -> dict[str, ob
     try:
         dataset_root = _find_dataset_dir(root)
     except FileNotFoundError:
-        download_uci_har(root)
+        download_uci_har(root, download_url=download_url)
         dataset_root = _find_dataset_dir(root)
     source_path = root / "source_manifest.json"
     if not source_path.exists():
@@ -310,12 +323,17 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--data-seed", type=int, default=20260716)
+    parser.add_argument("--download-url", default=UCI_HAR_URL)
     return parser.parse_args()
 
 
 def main() -> None:
     args = _parse_args()
-    manifest = prepare_uci_har(args.root, data_seed=args.data_seed)
+    manifest = prepare_uci_har(
+        args.root,
+        data_seed=args.data_seed,
+        download_url=args.download_url,
+    )
     print(json.dumps(manifest, indent=2, sort_keys=True))
 
 

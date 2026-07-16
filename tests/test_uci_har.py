@@ -5,10 +5,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from temporal_mamba.datasets import uci_har
 from temporal_mamba.datasets.uci_har import (
     SIGNAL_NAMES,
+    UCI_HAR_URL,
     UCIHARDataset,
     _safe_extract_zip,
+    download_uci_har,
     prepare_uci_har,
 )
 
@@ -97,3 +100,18 @@ def test_safe_extraction_rejects_traversal(tmp_path):
         with pytest.raises(ValueError, match="unsafe"):
             _safe_extract_zip(archive, tmp_path / "destination")
     assert not (tmp_path / "escape.txt").exists()
+
+
+def test_download_manifest_distinguishes_source_from_mirror(tmp_path, monkeypatch):
+    mirror = "https://mirror.example/UCI-HAR.zip"
+
+    def fake_download(path, url):
+        assert url == mirror
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("UCI HAR Dataset/train/Inertial Signals/", "")
+            archive.writestr("UCI HAR Dataset/test/Inertial Signals/", "")
+
+    monkeypatch.setattr(uci_har, "_download_archive", fake_download)
+    manifest = download_uci_har(tmp_path / "download", download_url=mirror)
+    assert manifest["source_url"] == UCI_HAR_URL
+    assert manifest["download_url"] == mirror
