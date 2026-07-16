@@ -444,6 +444,11 @@ def _git_commit() -> str:
 
 
 def _environment(device: torch.device, git_commit: str) -> dict[str, Any]:
+    cpu_affinity = (
+        sorted(os.sched_getaffinity(0))
+        if hasattr(os, "sched_getaffinity")
+        else None
+    )
     return {
         "python": sys.version,
         "platform": platform.platform(),
@@ -457,6 +462,7 @@ def _environment(device: torch.device, git_commit: str) -> dict[str, Any]:
         ),
         "git_commit": git_commit,
         "amp": False,
+        "cpu_affinity": cpu_affinity,
     }
 
 
