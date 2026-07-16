@@ -1,4 +1,9 @@
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+
+data/
+artifacts/
+*.pt
 results/
 .DS_Store
