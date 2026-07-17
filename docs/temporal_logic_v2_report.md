@@ -1,94 +1,82 @@
-# Temporal Logic v2 experiment report
+# 时序逻辑 v2 实验报告
 
-Verified runs: 12/12
-Stage-2 gate: True
+已验证实验：12/12
+第二阶段门槛：通过
 
-## Conclusion and scope
+## 结论与适用范围
 
-Scheme A removes the near-random failure: the query-bound models reach
-99.79%--99.97% mean balanced accuracy on the in-distribution test set, versus
-50.25% for the raw-concatenation diagnostic. Performance remains
-99.81%--100.00% under channel permutation and 88.58%--89.85% on longer
-sequences. Shuffling the temporal axis reduces accuracy to 49.58%--50.14%, and
-reversing it reduces accuracy to 56.56%--58.83%, so the result depends on event
-order rather than only on static channel statistics.
+方案 A 消除了接近随机猜测的问题：采用查询绑定的模型在同分布测试集上的平均平衡准确率达到 99.79%–99.97%，而原始拼接诊断基线仅为 50.25%。在通道置换条件下，模型仍保持 99.81%–100.00% 的准确率；在更长序列上，准确率为 88.58%–89.85%。打乱时间轴后，准确率下降至 49.58%–50.14%；反转时间轴后下降至 56.56%–58.83%。这说明实验结果依赖事件的时序顺序，而不只是静态通道统计特征。
 
-The four variants are effectively tied on the main test set; the error-aware
-variants do not provide a material advantage over the simpler vanilla model in
-this matrix. The current code therefore meets the controlled experiment goal:
-a Mamba model can learn the six implemented temporal-logic families when the
-query-to-channel binding is explicit and the rule distribution is matched.
-It does not yet establish a general temporal-logic reasoner. Channel-OOD
-invariance is partly enforced by the binder, and the experiment does not cover
-unseen operators, compositional formulas, substantially longer horizons, or
-real-world noise.
+四种模型变体在主要测试集上的表现基本持平。在本轮矩阵实验中，误差感知变体相较于更简单的 `vanilla` 模型没有实质优势。因此，当前代码已经达到受控实验目标：当查询与通道之间的绑定关系被显式建模，并且正负样本的规则分布相匹配时，Mamba 模型能够学习已实现的六类时序逻辑规则。
 
-## Evaluation views
+但本实验尚不足以证明模型是通用的时序逻辑推理器。通道分布外（Channel-OOD）不变性有一部分是由绑定器结构直接保证的；当前实验也没有覆盖未见过的算子、组合公式、显著更长的时间跨度或真实世界噪声。
 
-| View | Variant | Balanced accuracy mean | Sample std | Seeds |
+## 评估视图
+
+| 评估视图 | 模型变体 | 平均平衡准确率 | 样本标准差 | 随机种子数 |
 |---|---|---:|---:|---:|
-| val | vanilla | 1.000000 | 0.000000 | 3 |
-| val | two_pass | 1.000000 | 0.000000 | 3 |
-| val | error_inject | 0.998889 | 0.001925 | 3 |
-| val | error_aux | 1.000000 | 0.000000 | 3 |
-| test | vanilla | 0.999583 | 0.000417 | 3 |
-| test | two_pass | 0.999444 | 0.000636 | 3 |
-| test | error_inject | 0.997917 | 0.002917 | 3 |
-| test | error_aux | 0.999722 | 0.000481 | 3 |
-| long_test | vanilla | 0.885833 | 0.019094 | 3 |
-| long_test | two_pass | 0.895417 | 0.035402 | 3 |
-| long_test | error_inject | 0.898194 | 0.039822 | 3 |
-| long_test | error_aux | 0.898472 | 0.020092 | 3 |
-| channel_ood | vanilla | 1.000000 | 0.000000 | 3 |
-| channel_ood | two_pass | 0.999722 | 0.000241 | 3 |
-| channel_ood | error_inject | 0.998056 | 0.002646 | 3 |
-| channel_ood | error_aux | 0.999861 | 0.000241 | 3 |
-| reverse_frozen | vanilla | 0.573056 | 0.000241 | 3 |
-| reverse_frozen | two_pass | 0.568333 | 0.006548 | 3 |
-| reverse_frozen | error_inject | 0.565556 | 0.009075 | 3 |
-| reverse_frozen | error_aux | 0.588333 | 0.026342 | 3 |
-| shuffle_frozen | vanilla | 0.497639 | 0.003127 | 3 |
-| shuffle_frozen | two_pass | 0.500139 | 0.005040 | 3 |
-| shuffle_frozen | error_inject | 0.501389 | 0.006926 | 3 |
-| shuffle_frozen | error_aux | 0.495833 | 0.000722 | 3 |
+| 验证集（`val`） | 基础模型（`vanilla`） | 1.000000 | 0.000000 | 3 |
+| 验证集（`val`） | 双遍模型（`two_pass`） | 1.000000 | 0.000000 | 3 |
+| 验证集（`val`） | 误差注入（`error_inject`） | 0.998889 | 0.001925 | 3 |
+| 验证集（`val`） | 误差辅助（`error_aux`） | 1.000000 | 0.000000 | 3 |
+| 测试集（`test`） | 基础模型（`vanilla`） | 0.999583 | 0.000417 | 3 |
+| 测试集（`test`） | 双遍模型（`two_pass`） | 0.999444 | 0.000636 | 3 |
+| 测试集（`test`） | 误差注入（`error_inject`） | 0.997917 | 0.002917 | 3 |
+| 测试集（`test`） | 误差辅助（`error_aux`） | 0.999722 | 0.000481 | 3 |
+| 长序列测试（`long_test`） | 基础模型（`vanilla`） | 0.885833 | 0.019094 | 3 |
+| 长序列测试（`long_test`） | 双遍模型（`two_pass`） | 0.895417 | 0.035402 | 3 |
+| 长序列测试（`long_test`） | 误差注入（`error_inject`） | 0.898194 | 0.039822 | 3 |
+| 长序列测试（`long_test`） | 误差辅助（`error_aux`） | 0.898472 | 0.020092 | 3 |
+| 通道分布外（`channel_ood`） | 基础模型（`vanilla`） | 1.000000 | 0.000000 | 3 |
+| 通道分布外（`channel_ood`） | 双遍模型（`two_pass`） | 0.999722 | 0.000241 | 3 |
+| 通道分布外（`channel_ood`） | 误差注入（`error_inject`） | 0.998056 | 0.002646 | 3 |
+| 通道分布外（`channel_ood`） | 误差辅助（`error_aux`） | 0.999861 | 0.000241 | 3 |
+| 时序反转、标签冻结（`reverse_frozen`） | 基础模型（`vanilla`） | 0.573056 | 0.000241 | 3 |
+| 时序反转、标签冻结（`reverse_frozen`） | 双遍模型（`two_pass`） | 0.568333 | 0.006548 | 3 |
+| 时序反转、标签冻结（`reverse_frozen`） | 误差注入（`error_inject`） | 0.565556 | 0.009075 | 3 |
+| 时序反转、标签冻结（`reverse_frozen`） | 误差辅助（`error_aux`） | 0.588333 | 0.026342 | 3 |
+| 时序打乱、标签冻结（`shuffle_frozen`） | 基础模型（`vanilla`） | 0.497639 | 0.003127 | 3 |
+| 时序打乱、标签冻结（`shuffle_frozen`） | 双遍模型（`two_pass`） | 0.500139 | 0.005040 | 3 |
+| 时序打乱、标签冻结（`shuffle_frozen`） | 误差注入（`error_inject`） | 0.501389 | 0.006926 | 3 |
+| 时序打乱、标签冻结（`shuffle_frozen`） | 误差辅助（`error_aux`） | 0.495833 | 0.000722 | 3 |
 
-## Formula families
+## 时序逻辑规则族
 
-| Family | Variant | Test accuracy mean |
+| 规则族 | 模型变体 | 平均测试准确率 |
 |---|---|---:|
-| EVENTUALLY | vanilla | 1.000000 |
-| EVENTUALLY | two_pass | 1.000000 |
-| EVENTUALLY | error_inject | 1.000000 |
-| EVENTUALLY | error_aux | 1.000000 |
-| BEFORE | vanilla | 1.000000 |
-| BEFORE | two_pass | 1.000000 |
-| BEFORE | error_inject | 1.000000 |
-| BEFORE | error_aux | 1.000000 |
-| UNTIL | vanilla | 1.000000 |
-| UNTIL | two_pass | 1.000000 |
-| UNTIL | error_inject | 1.000000 |
-| UNTIL | error_aux | 1.000000 |
-| BOUNDED_RESPONSE | vanilla | 1.000000 |
-| BOUNDED_RESPONSE | two_pass | 1.000000 |
-| BOUNDED_RESPONSE | error_inject | 1.000000 |
-| BOUNDED_RESPONSE | error_aux | 1.000000 |
-| COUNT_WITHIN | vanilla | 0.997500 |
-| COUNT_WITHIN | two_pass | 0.996667 |
-| COUNT_WITHIN | error_inject | 0.987500 |
-| COUNT_WITHIN | error_aux | 0.998333 |
-| GAP | vanilla | 1.000000 |
-| GAP | two_pass | 1.000000 |
-| GAP | error_inject | 1.000000 |
-| GAP | error_aux | 1.000000 |
+| 最终发生（`EVENTUALLY`） | `vanilla` | 1.000000 |
+| 最终发生（`EVENTUALLY`） | `two_pass` | 1.000000 |
+| 最终发生（`EVENTUALLY`） | `error_inject` | 1.000000 |
+| 最终发生（`EVENTUALLY`） | `error_aux` | 1.000000 |
+| 先于（`BEFORE`） | `vanilla` | 1.000000 |
+| 先于（`BEFORE`） | `two_pass` | 1.000000 |
+| 先于（`BEFORE`） | `error_inject` | 1.000000 |
+| 先于（`BEFORE`） | `error_aux` | 1.000000 |
+| 持续直到（`UNTIL`） | `vanilla` | 1.000000 |
+| 持续直到（`UNTIL`） | `two_pass` | 1.000000 |
+| 持续直到（`UNTIL`） | `error_inject` | 1.000000 |
+| 持续直到（`UNTIL`） | `error_aux` | 1.000000 |
+| 有界响应（`BOUNDED_RESPONSE`） | `vanilla` | 1.000000 |
+| 有界响应（`BOUNDED_RESPONSE`） | `two_pass` | 1.000000 |
+| 有界响应（`BOUNDED_RESPONSE`） | `error_inject` | 1.000000 |
+| 有界响应（`BOUNDED_RESPONSE`） | `error_aux` | 1.000000 |
+| 窗口内计数（`COUNT_WITHIN`） | `vanilla` | 0.997500 |
+| 窗口内计数（`COUNT_WITHIN`） | `two_pass` | 0.996667 |
+| 窗口内计数（`COUNT_WITHIN`） | `error_inject` | 0.987500 |
+| 窗口内计数（`COUNT_WITHIN`） | `error_aux` | 0.998333 |
+| 时间间隔（`GAP`） | `vanilla` | 1.000000 |
+| 时间间隔（`GAP`） | `two_pass` | 1.000000 |
+| 时间间隔（`GAP`） | `error_inject` | 1.000000 |
+| 时间间隔（`GAP`） | `error_aux` | 1.000000 |
 
-## Attribution and order controls
+## 归因分析与时序顺序对照
 
-- Binder minus raw: `0.4966666666666666`
-- Reverse frozen minus ID: `-0.42534722222222215`
-- Shuffle frozen minus ID: `-0.5004166666666666`
-- Negative frozen-order deltas indicate sensitivity to temporal order under unchanged labels.
+- 查询绑定相对原始拼接的提升：`0.4966666666666666`
+- 时序反转、标签冻结相对同分布测试的变化：`-0.42534722222222215`
+- 时序打乱、标签冻结相对同分布测试的变化：`-0.5004166666666666`
+- 标签保持不变时，冻结顺序对照实验出现显著负向差值，说明模型对时序顺序敏感。
 
-## Provenance
+## 实验溯源
 
-- Git commit: `fb064ca2cc9c04c179499c2e149cafef42eb23c7`
-- Dataset manifest: `05e6ffad86fcb1702666101ab864f4d5c2b5e9fc523f358a54cbeeaabc9d6827`
+- Git 提交：`fb064ca2cc9c04c179499c2e149cafef42eb23c7`
+- 数据集清单：`05e6ffad86fcb1702666101ab864f4d5c2b5e9fc523f358a54cbeeaabc9d6827`
