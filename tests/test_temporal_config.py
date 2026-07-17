@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -62,6 +63,32 @@ def test_variant_properties(tmp_path):
     assert cfg.uses_error and cfg.uses_aux
     assert cfg.time_transform == "reverse"
     assert cfg.model.dt_min < cfg.model.dt_max
+    assert cfg.input_mode == "standard"
+
+
+@pytest.mark.parametrize(
+    ("name", "input_mode"),
+    [
+        ("temporal_logic_v2.json", "query_bound"),
+        ("temporal_logic_v2_raw.json", "raw_concat"),
+    ],
+)
+def test_v2_repository_configs_select_explicit_input_mode(name, input_mode):
+    path = Path(__file__).parents[1] / "configs" / name
+    cfg = load_experiment_config(path, variant="vanilla", seed=42)
+    assert cfg.dataset == "temporal_logic_v2"
+    assert cfg.input_mode == input_mode
+    assert cfg.data.validation_fraction == 0.0
+
+
+@pytest.mark.parametrize("input_mode", ["standard", "unknown"])
+def test_v2_rejects_non_v2_input_mode(tmp_path, input_mode):
+    config = _valid_config()
+    config.update(dataset="temporal_logic_v2", input_mode=input_mode)
+    path = tmp_path / "cfg.json"
+    path.write_text(json.dumps(config), encoding="utf-8")
+    with pytest.raises(ValueError, match="input_mode"):
+        load_experiment_config(path, variant="vanilla", seed=42)
 
 
 @pytest.mark.parametrize(

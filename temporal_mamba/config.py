@@ -17,7 +17,8 @@ VARIANTS = (
     "time_reverse",
 )
 TRAINING_SEEDS = (42, 123, 777)
-DATASETS = ("temporal_logic", "uci_har")
+DATASETS = ("temporal_logic", "temporal_logic_v2", "uci_har")
+INPUT_MODES = ("standard", "raw_concat", "query_bound")
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,7 @@ class ExperimentConfig:
     training: TrainingConfig
     variant: str
     seed: int
+    input_mode: str = "standard"
 
     @property
     def pass_count(self) -> int:
@@ -133,6 +135,10 @@ def _validate(config: ExperimentConfig) -> None:
         raise ValueError(f"variant must be one of {VARIANTS}, got {config.variant!r}")
     if config.seed not in TRAINING_SEEDS:
         raise ValueError(f"seed must be one of {TRAINING_SEEDS}, got {config.seed!r}")
+    if config.input_mode not in INPUT_MODES:
+        raise ValueError(f"input_mode must be one of {INPUT_MODES}, got {config.input_mode!r}")
+    if config.dataset == "temporal_logic_v2" and config.input_mode not in {"raw_concat", "query_bound"}:
+        raise ValueError("input_mode must be raw_concat or query_bound for temporal_logic_v2")
 
     _positive_int("data_seed", config.data_seed)
     _positive_int("signal_dim", config.signal_dim)
@@ -141,8 +147,8 @@ def _validate(config: ExperimentConfig) -> None:
     for name in ("train_size", "val_size", "test_size", "long_test_size"):
         _positive_int(name, getattr(config.data, name), allow_zero=config.dataset == "uci_har")
     _fraction("validation_fraction", config.data.validation_fraction)
-    if config.dataset == "temporal_logic" and config.data.validation_fraction != 0.0:
-        raise ValueError("validation_fraction must be 0 for temporal_logic")
+    if config.dataset in {"temporal_logic", "temporal_logic_v2"} and config.data.validation_fraction != 0.0:
+        raise ValueError("validation_fraction must be 0 for temporal logic datasets")
     if config.dataset == "uci_har" and config.data.validation_fraction <= 0.0:
         raise ValueError("validation_fraction must be positive for uci_har")
 
@@ -194,9 +200,10 @@ def load_experiment_config(
         "data",
         "model",
         "training",
+        "input_mode",
     }
     unknown = set(raw) - expected
-    missing = expected - set(raw)
+    missing = expected - {"input_mode"} - set(raw)
     if unknown:
         raise ValueError(f"unknown config field: {sorted(unknown)[0]}")
     if missing:
@@ -216,6 +223,7 @@ def load_experiment_config(
         training=training,
         variant=variant,
         seed=seed,
+        input_mode=raw.get("input_mode", "standard"),
     )
     _validate(config)
     return config
