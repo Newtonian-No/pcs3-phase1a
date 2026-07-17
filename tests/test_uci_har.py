@@ -1,3 +1,4 @@
+import hashlib
 import json
 import zipfile
 from pathlib import Path
@@ -79,6 +80,60 @@ def test_views_are_deterministic_and_keep_activity_labels(tmp_path):
     for dataset in (reverse, shuffle_a):
         assert dataset[1]["target"] == base[1]["target"]
         assert dataset[1]["base_target"] == base[1]["target"]
+
+
+def test_gc_targets_and_ood_views_are_causal_and_deterministic(tmp_path):
+    root = tmp_path / "har"
+    make_extracted_fixture(root)
+    prepare_uci_har(root, data_seed=20260716)
+    base = UCIHARDataset(root, "test", transform="none")[0]
+    reverse = UCIHARDataset(root, "test", transform="reverse")[0]
+    prefix = UCIHARDataset(root, "test", transform="prefix50")[0]
+    noise_a = UCIHARDataset(root, "test", transform="noise_025")[0]
+    noise_b = UCIHARDataset(root, "test", transform="noise_025")[0]
+
+    np.testing.assert_array_equal(prefix["signal"], base["signal"][:64])
+    assert prefix["signal"].shape == (64, 9)
+    assert prefix["features"].shape == (64, 10)
+    assert prefix["coordinate_targets"].shape == (64, 3, 9)
+    assert prefix["coordinate_targets"].dtype == np.float32
+    assert prefix["coordinate_mask"].shape == (64, 3, 1)
+    assert prefix["coordinate_mask"].dtype == np.bool_
+
+    coordinates = reverse["coordinate_targets"]
+    np.testing.assert_array_equal(coordinates[:, 0], reverse["signal"])
+    np.testing.assert_array_equal(
+        coordinates[1:, 1], reverse["signal"][1:] - reverse["signal"][:-1]
+    )
+    np.testing.assert_array_equal(
+        coordinates[2:, 2],
+        reverse["signal"][2:]
+        - 2 * reverse["signal"][1:-1]
+        + reverse["signal"][:-2],
+    )
+    np.testing.assert_array_equal(coordinates[0, 1:], 0.0)
+    np.testing.assert_array_equal(coordinates[1, 2], 0.0)
+    assert reverse["coordinate_mask"][:, 0, 0].all()
+    assert not reverse["coordinate_mask"][0, 1:, 0].any()
+    assert reverse["coordinate_mask"][1:, 1, 0].all()
+    assert not reverse["coordinate_mask"][:2, 2, 0].any()
+    assert reverse["coordinate_mask"][2:, 2, 0].all()
+
+    np.testing.assert_array_equal(noise_a["signal"], noise_b["signal"])
+    for key in ("features", "signal", "coordinate_targets", "coordinate_mask"):
+        assert noise_a[key].tobytes() == noise_b[key].tobytes()
+    assert not np.array_equal(noise_a["signal"], base["signal"])
+    seed_bytes = hashlib.sha256(
+        f"20260716:{base['sample_id']}:noise_025".encode("utf-8")
+    ).digest()[:8]
+    expected_noise = np.random.default_rng(
+        int.from_bytes(seed_bytes, "little", signed=False)
+    ).normal(0.0, 0.25, size=base["signal"].shape)
+    np.testing.assert_array_equal(
+        noise_a["signal"], (base["signal"] + expected_noise).astype(np.float32)
+    )
+    assert noise_a["target"] == base["target"]
+    assert noise_a["base_target"] == base["base_target"]
 
 
 def test_preparation_is_byte_reproducible(tmp_path):

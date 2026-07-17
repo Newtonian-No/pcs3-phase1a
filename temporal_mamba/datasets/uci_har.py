@@ -280,8 +280,16 @@ class UCIHARDataset:
     def __init__(self, root: str | Path, split: str, transform: str = "none") -> None:
         if split not in _SPLITS:
             raise ValueError(f"split must be one of {_SPLITS}")
-        if transform not in {"none", "reverse", "shuffle"}:
-            raise ValueError("transform must be none, reverse, or shuffle")
+        if transform not in {
+            "none",
+            "reverse",
+            "shuffle",
+            "prefix50",
+            "noise_025",
+        }:
+            raise ValueError(
+                "transform must be none, reverse, shuffle, prefix50, or noise_025"
+            )
         self.root = Path(root)
         self.split = split
         self.transform = transform
@@ -300,17 +308,38 @@ class UCIHARDataset:
             seed_bytes = hashlib.sha256(f"{self.data_seed}:{sample_id}".encode("utf-8")).digest()[:8]
             rng = np.random.default_rng(int.from_bytes(seed_bytes, "little", signed=False))
             return signal[rng.permutation(signal.shape[0])].copy()
+        if self.transform == "prefix50":
+            return signal[:64].copy()
+        if self.transform == "noise_025":
+            seed_bytes = hashlib.sha256(
+                f"{self.data_seed}:{sample_id}:noise_025".encode("utf-8")
+            ).digest()[:8]
+            rng = np.random.default_rng(int.from_bytes(seed_bytes, "little", signed=False))
+            noise = rng.normal(0.0, 0.25, size=signal.shape)
+            return (signal + noise).astype(np.float32)
         return signal.copy()
 
     def __getitem__(self, index: int) -> dict[str, object]:
         sample_id = str(self._arrays["sample_id"][index])
         signal = self._transform_signal(self._arrays["signal"][index], sample_id)
         target = np.int64(self._arrays["target"][index])
+        coordinate_targets = np.zeros(
+            (signal.shape[0], 3, signal.shape[1]), dtype=np.float32
+        )
+        coordinate_targets[:, 0] = signal
+        coordinate_targets[1:, 1] = signal[1:] - signal[:-1]
+        coordinate_targets[2:, 2] = signal[2:] - 2 * signal[1:-1] + signal[:-2]
+        coordinate_mask = np.ones((signal.shape[0], 3, 1), dtype=np.bool_)
+        coordinate_mask[0, 1:] = False
+        if signal.shape[0] > 1:
+            coordinate_mask[1, 2] = False
         time = np.linspace(0.0, 1.0, signal.shape[0], dtype=np.float32)[:, None]
         features = np.concatenate([signal, time], axis=-1).astype(np.float32, copy=False)
         return {
             "features": features,
             "signal": signal,
+            "coordinate_targets": coordinate_targets,
+            "coordinate_mask": coordinate_mask,
             "target": target,
             "sample_id": sample_id,
             "formula_family": "",
