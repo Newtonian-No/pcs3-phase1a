@@ -6,6 +6,8 @@ from importlib import import_module
 
 
 __all__ = [
+    "GeneralizedDynamicsDataset",
+    "build_generalized_dynamics_manifest",
     "FORMULA_FAMILIES",
     "TemporalLogicDataset",
     "TemporalQuery",
@@ -21,6 +23,8 @@ __all__ = [
 ]
 
 _MODULE_BY_NAME = {
+    "GeneralizedDynamicsDataset": ".generalized_dynamics",
+    "build_generalized_dynamics_manifest": ".generalized_dynamics",
     "FORMULA_FAMILIES": ".temporal_logic",
     "TemporalLogicDataset": ".temporal_logic",
     "TemporalQuery": ".temporal_logic",
