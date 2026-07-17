@@ -133,6 +133,15 @@ def test_generalized_dynamics_task_loss_uses_cross_entropy():
     torch.testing.assert_close(actual, torch.nn.functional.cross_entropy(logits, target))
 
 
+def test_generalized_dynamics_invalid_logits_have_dataset_specific_error():
+    with pytest.raises(ValueError, match="generalized_dynamics logits must be B x C"):
+        compute_task_loss(
+            torch.zeros(2, 1),
+            torch.tensor([0, 1]),
+            dataset="generalized_dynamics",
+        )
+
+
 def test_gc_total_loss_uses_masked_auxiliary_warmup():
     errors = torch.ones(2, 4, 6)
     valid = torch.ones(2, 4, 3, 1, dtype=torch.bool)

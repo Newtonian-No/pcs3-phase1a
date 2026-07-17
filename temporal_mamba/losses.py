@@ -56,7 +56,7 @@ def compute_task_loss(logits: Tensor, target: Tensor, *, dataset: str) -> Tensor
         return F.binary_cross_entropy_with_logits(logits[:, 0], target)
     if dataset in {"uci_har", "generalized_dynamics"}:
         if logits.ndim != 2 or logits.shape[-1] < 2:
-            raise ValueError("uci_har logits must be B x C")
+            raise ValueError(f"{dataset} logits must be B x C")
         target = target.long().reshape(-1)
         if len(target) != logits.shape[0]:
             raise ValueError("logits and target batch sizes differ")
