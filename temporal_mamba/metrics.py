@@ -73,6 +73,7 @@ def multiclass_metrics(target, predicted, *, num_classes: int) -> dict[str, obje
         )
     return {
         "accuracy": float(np.trace(confusion) / confusion.sum()),
+        "balanced_accuracy": float(sum(recalls) / num_classes),
         "macro_f1": float(sum(per_class_f1) / num_classes),
         "per_class_f1": per_class_f1,
         "per_class_recall": recalls,

@@ -1,7 +1,11 @@
 import pytest
 import torch
 
-from temporal_mamba.config import ModelConfig
+from temporal_mamba.config import GC_MATRIX_VARIANTS, ModelConfig
+from temporal_mamba.generalized_coordinates import (
+    GeneralizedCoordinatePredictor,
+    causal_coordinate_targets,
+)
 from temporal_mamba.model import NextStepPredictor, TemporalMambaModel, aligned_errors
 
 
@@ -208,3 +212,160 @@ def test_rejects_misaligned_inputs_and_unknown_variant():
         model(features, signal, variant="vanilla")
     with pytest.raises(ValueError, match="variant"):
         model(features, torch.randn(2, 8, 4), variant="future")
+
+
+@pytest.mark.parametrize(
+    ("variant", "order"),
+    [
+        ("gc_k1", 1),
+        ("gc_k2", 2),
+        ("gc_k3", 3),
+        ("gc_k3_shuffled", 3),
+        ("gc_k3_noise", 3),
+    ],
+)
+def test_gc_forward_has_fixed_error_width(variant, order):
+    config = ModelConfig(
+        d_model=8,
+        d_state=4,
+        n_layers=2,
+        expand=1,
+        dt_min=1e-3,
+        dt_max=1e-1,
+        alpha_max=1.38629436112,
+        dropout=0.0,
+    )
+    model = TemporalMambaModel(
+        input_dim=7,
+        signal_dim=6,
+        num_outputs=3,
+        model_config=config,
+        generalized_coordinates=True,
+    )
+    signal = torch.randn(4, 16, 6)
+    time = torch.linspace(0, 1, 16).view(1, 16, 1).expand(4, -1, -1)
+    features = torch.cat((signal, time), -1)
+    coordinates = causal_coordinate_targets(signal)
+    output = model(
+        features,
+        signal,
+        variant=variant,
+        coordinate_targets=coordinates.targets,
+        coordinate_mask=coordinates.mask,
+        error_control_seed=99,
+    )
+    assert output.coordinate_errors.shape == (4, 16, 18)
+    assert output.coordinate_mask.shape == (4, 16, 3, 1)
+    assert output.gc_order == order
+    assert output.pass_count == 2
+
+
+def test_all_gc_variants_have_identical_parameter_count():
+    config = ModelConfig(
+        d_model=8,
+        d_state=4,
+        n_layers=2,
+        expand=1,
+        dt_min=1e-3,
+        dt_max=1e-1,
+        alpha_max=1.38629436112,
+        dropout=0.0,
+    )
+    counts = []
+    for _variant in GC_MATRIX_VARIANTS:
+        model = TemporalMambaModel(
+            input_dim=7,
+            signal_dim=6,
+            num_outputs=3,
+            model_config=config,
+            generalized_coordinates=True,
+        )
+        counts.append(sum(parameter.numel() for parameter in model.parameters()))
+        assert isinstance(model.predictor, GeneralizedCoordinatePredictor)
+        assert not any(isinstance(module, NextStepPredictor) for module in model.modules())
+        assert all(layer.ssm.error_dim == 18 for layer in model.layers)
+    assert len(set(counts)) == 1
+
+
+@pytest.mark.parametrize(("variant", "passes"), [("vanilla", 1), ("two_pass", 2)])
+def test_gc_baselines_build_gc_modules_without_computing_errors(variant, passes):
+    model = TemporalMambaModel(
+        input_dim=20,
+        signal_dim=4,
+        num_outputs=3,
+        model_config=make_tiny_model().model_config,
+        generalized_coordinates=True,
+    )
+    output = model(
+        torch.randn(2, 8, 20),
+        torch.randn(2, 8, 4),
+        variant=variant,
+    )
+    assert output.pass_count == passes
+    assert output.coordinate_errors is None
+    assert output.coordinate_mask is None
+    assert output.gc_order == 0
+
+
+def test_gc_error_variants_require_coordinate_targets_and_mask():
+    model = TemporalMambaModel(
+        input_dim=20,
+        signal_dim=4,
+        num_outputs=3,
+        model_config=make_tiny_model().model_config,
+        generalized_coordinates=True,
+    )
+    features = torch.randn(2, 8, 20)
+    signal = torch.randn(2, 8, 4)
+    coordinates = causal_coordinate_targets(signal)
+    with pytest.raises(ValueError, match="coordinate_targets"):
+        model(features, signal, variant="gc_k1", coordinate_mask=coordinates.mask)
+    with pytest.raises(ValueError, match="coordinate_mask"):
+        model(features, signal, variant="gc_k1", coordinate_targets=coordinates.targets)
+
+
+def test_gc_controls_replace_only_the_injected_error():
+    torch.manual_seed(21)
+    model = TemporalMambaModel(
+        input_dim=20,
+        signal_dim=4,
+        num_outputs=3,
+        model_config=make_tiny_model().model_config,
+        generalized_coordinates=True,
+    ).eval()
+    features = torch.randn(3, 8, 20)
+    signal = torch.randn(3, 8, 4)
+    coordinates = causal_coordinate_targets(signal)
+    common = dict(
+        coordinate_targets=coordinates.targets,
+        coordinate_mask=coordinates.mask,
+        error_control_seed=7,
+    )
+    clean = model(features, signal, variant="gc_k3", **common)
+    shuffled = model(features, signal, variant="gc_k3_shuffled", **common)
+    noise = model(features, signal, variant="gc_k3_noise", **common)
+    torch.testing.assert_close(shuffled.coordinate_errors, clean.coordinate_errors)
+    torch.testing.assert_close(noise.coordinate_errors, clean.coordinate_errors)
+
+
+def test_explicit_false_gc_flag_preserves_legacy_model_and_forward():
+    torch.manual_seed(22)
+    implicit = make_tiny_model().eval()
+    torch.manual_seed(22)
+    explicit = TemporalMambaModel(
+        input_dim=20,
+        signal_dim=4,
+        num_outputs=1,
+        model_config=implicit.model_config,
+        generalized_coordinates=False,
+    ).eval()
+    assert implicit.state_dict().keys() == explicit.state_dict().keys()
+    for name, value in implicit.state_dict().items():
+        torch.testing.assert_close(value, explicit.state_dict()[name])
+    features = torch.randn(2, 8, 20)
+    signal = torch.randn(2, 8, 4)
+    first = implicit(features, signal, variant="error_aux")
+    second = explicit(features, signal, variant="error_aux")
+    torch.testing.assert_close(first.logits, second.logits)
+    torch.testing.assert_close(first.position_error, second.position_error)
+    torch.testing.assert_close(first.velocity_error, second.velocity_error)

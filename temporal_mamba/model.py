@@ -7,7 +7,14 @@ from dataclasses import dataclass
 import torch
 from torch import Tensor, nn
 
-from .config import INPUT_MODES, VARIANTS, ModelConfig
+from .config import GC_MATRIX_VARIANTS, GC_VARIANTS, INPUT_MODES, VARIANTS, ModelConfig
+from .generalized_coordinates import (
+    CoordinateBatch,
+    GeneralizedCoordinatePredictor,
+    aligned_coordinate_errors,
+    controlled_error,
+    select_active_orders,
+)
 from .query_binding import BoundedQueryFiLM, TemporalQueryBinder
 from .ssm import RMSNorm, SSMDiagnostics, TemporalMambaBlock
 
@@ -23,6 +30,9 @@ class TemporalModelOutput:
     pass_count: int
     uses_error: bool
     diagnostics: dict[str, Tensor]
+    coordinate_errors: Tensor | None = None
+    coordinate_mask: Tensor | None = None
+    gc_order: int = 0
 
 
 class NextStepPredictor(nn.Module):
@@ -86,6 +96,7 @@ class TemporalMambaModel(nn.Module):
         num_outputs: int,
         model_config: ModelConfig,
         input_mode: str = "standard",
+        generalized_coordinates: bool = False,
     ) -> None:
         super().__init__()
         if input_dim <= 0 or signal_dim <= 0 or num_outputs <= 0:
@@ -97,6 +108,7 @@ class TemporalMambaModel(nn.Module):
         self.num_outputs = num_outputs
         self.model_config = model_config
         self.input_mode = input_mode
+        self.generalized_coordinates = generalized_coordinates
 
         query_bound = input_mode == "query_bound"
         encoder_input_dim = 5 if query_bound else input_dim
@@ -114,7 +126,11 @@ class TemporalMambaModel(nn.Module):
                     d_model=model_config.d_model,
                     d_state=model_config.d_state,
                     expand=model_config.expand,
-                    error_dim=2 * prediction_signal_dim,
+                    error_dim=(
+                        3 * signal_dim
+                        if generalized_coordinates
+                        else 2 * prediction_signal_dim
+                    ),
                     dt_min=model_config.dt_min,
                     dt_max=model_config.dt_max,
                     alpha_max=model_config.alpha_max,
@@ -124,7 +140,14 @@ class TemporalMambaModel(nn.Module):
             ]
         )
         self.output_norm = RMSNorm(model_config.d_model)
-        self.predictor = NextStepPredictor(model_config.d_model, prediction_signal_dim)
+        if generalized_coordinates:
+            self.predictor = GeneralizedCoordinatePredictor(
+                model_config.d_model, signal_dim
+            )
+        else:
+            self.predictor = NextStepPredictor(
+                model_config.d_model, prediction_signal_dim
+            )
         classifier_dim = 3 * model_config.d_model if query_bound else model_config.d_model
         self.classifier = nn.Linear(classifier_dim, num_outputs)
 
@@ -161,9 +184,15 @@ class TemporalMambaModel(nn.Module):
         variant: str,
         query: Tensor | None = None,
         return_diagnostics: bool = False,
+        coordinate_targets: Tensor | None = None,
+        coordinate_mask: Tensor | None = None,
+        error_control_seed: int | None = None,
     ) -> TemporalModelOutput:
-        if variant not in VARIANTS:
-            raise ValueError(f"variant must be one of {VARIANTS}, got {variant!r}")
+        allowed_variants = GC_MATRIX_VARIANTS if self.generalized_coordinates else VARIANTS
+        if variant not in allowed_variants:
+            raise ValueError(
+                f"variant must be one of {allowed_variants}, got {variant!r}"
+            )
         if features.ndim != 3 or signal.ndim != 3:
             raise ValueError("features and signal must be B x T x D")
         if features.shape[:2] != signal.shape[:2]:
@@ -193,14 +222,56 @@ class TemporalMambaModel(nn.Module):
         )
         position_error: Tensor | None = None
         velocity_error: Tensor | None = None
-        uses_error = variant in _ERROR_VARIANTS
+        coordinate_errors: Tensor | None = None
+        valid_coordinate_mask: Tensor | None = None
+        gc_order = 0
+        uses_error = (
+            variant in GC_VARIANTS
+            if self.generalized_coordinates
+            else variant in _ERROR_VARIANTS
+        )
         all_diagnostics = first_diagnostics
 
         if variant == "vanilla":
             final_hidden = first_hidden
             pass_count = 1
         else:
-            if uses_error:
+            if self.generalized_coordinates and uses_error:
+                if coordinate_targets is None:
+                    raise ValueError(f"variant {variant} requires coordinate_targets")
+                if coordinate_mask is None:
+                    raise ValueError(f"variant {variant} requires coordinate_mask")
+                assert isinstance(self.predictor, GeneralizedCoordinatePredictor)
+                errors_by_order, valid_coordinate_mask = aligned_coordinate_errors(
+                    first_hidden,
+                    CoordinateBatch(
+                        targets=coordinate_targets,
+                        mask=coordinate_mask,
+                    ),
+                    self.predictor,
+                )
+                gc_order = {
+                    "gc_k1": 1,
+                    "gc_k2": 2,
+                    "gc_k3": 3,
+                    "gc_k3_shuffled": 3,
+                    "gc_k3_noise": 3,
+                }[variant]
+                coordinate_errors = select_active_orders(errors_by_order, gc_order)
+                error = coordinate_errors
+                if variant in {"gc_k3_shuffled", "gc_k3_noise"}:
+                    if error_control_seed is None:
+                        raise ValueError(
+                            f"variant {variant} requires error_control_seed"
+                        )
+                    error = controlled_error(
+                        error,
+                        variant,
+                        valid=valid_coordinate_mask,
+                        seed=error_control_seed,
+                    )
+            elif not self.generalized_coordinates and uses_error:
+                assert isinstance(self.predictor, NextStepPredictor)
                 position_error, velocity_error = aligned_errors(
                     first_hidden,
                     prediction_signal,
@@ -246,4 +317,7 @@ class TemporalMambaModel(nn.Module):
             pass_count=pass_count,
             uses_error=uses_error,
             diagnostics=diagnostics,
+            coordinate_errors=coordinate_errors,
+            coordinate_mask=valid_coordinate_mask,
+            gc_order=gc_order,
         )

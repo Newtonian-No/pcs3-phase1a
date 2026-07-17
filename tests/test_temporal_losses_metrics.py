@@ -6,6 +6,7 @@ from temporal_mamba.losses import (
     auxiliary_weight,
     compute_task_loss,
     compute_total_loss,
+    generalized_prediction_loss,
     pointwise_prediction_loss,
 )
 from temporal_mamba.metrics import binary_metrics, multiclass_metrics
@@ -105,3 +106,60 @@ def test_multiclass_metrics_hand_checked_and_missing_class_safe():
         [0, 0, 0, 0],
     ]
     assert np.isfinite(metrics["macro_f1"])
+    assert metrics["balanced_accuracy"] == pytest.approx(0.5)
+
+
+def test_gc_auxiliary_loss_ignores_invalid_and_inactive_orders():
+    errors = torch.zeros(2, 5, 12)
+    errors[:, :, 4:] = 1000
+    valid = torch.ones(2, 5, 3, 1, dtype=torch.bool)
+    valid[:, 2, 0] = False
+    errors[:, 2, :4] = 1000
+    loss = generalized_prediction_loss(errors, valid, signal_dim=4, active_order=1)
+    assert loss == 0
+
+
+def test_gc_order_weights_are_preregistered():
+    errors = torch.ones(1, 4, 6)
+    valid = torch.ones(1, 4, 3, 1, dtype=torch.bool)
+    value = generalized_prediction_loss(errors, valid, signal_dim=2, active_order=3)
+    torch.testing.assert_close(value, torch.tensor(0.875))
+
+
+def test_generalized_dynamics_task_loss_uses_cross_entropy():
+    logits = torch.tensor([[2.0, 0.0, -1.0], [0.0, 1.0, 3.0]])
+    target = torch.tensor([0, 2])
+    actual = compute_task_loss(logits, target, dataset="generalized_dynamics")
+    torch.testing.assert_close(actual, torch.nn.functional.cross_entropy(logits, target))
+
+
+def test_gc_total_loss_uses_masked_auxiliary_warmup():
+    errors = torch.ones(2, 4, 6)
+    valid = torch.ones(2, 4, 3, 1, dtype=torch.bool)
+    output = TemporalModelOutput(
+        logits=torch.zeros(2, 3),
+        position_error=None,
+        velocity_error=None,
+        pass_count=2,
+        uses_error=True,
+        diagnostics={},
+        coordinate_errors=errors,
+        coordinate_mask=valid,
+        gc_order=2,
+    )
+    breakdown = compute_total_loss(
+        output,
+        torch.tensor([0, 1]),
+        dataset="generalized_dynamics",
+        variant="gc_k2",
+        epoch=3,
+        total_epochs=30,
+        lambda_aux=0.1,
+        aux_warmup_fraction=0.1,
+    )
+    torch.testing.assert_close(breakdown.auxiliary, torch.tensor(0.75))
+    assert breakdown.aux_weight == pytest.approx(0.1)
+    torch.testing.assert_close(
+        breakdown.total,
+        breakdown.task + 0.1 * breakdown.auxiliary,
+    )
