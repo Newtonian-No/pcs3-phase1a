@@ -7,7 +7,8 @@ from dataclasses import dataclass
 import torch
 from torch import Tensor, nn
 
-from .config import VARIANTS, ModelConfig
+from .config import INPUT_MODES, VARIANTS, ModelConfig
+from .query_binding import BoundedQueryFiLM, TemporalQueryBinder
 from .ssm import RMSNorm, SSMDiagnostics, TemporalMambaBlock
 
 
@@ -84,23 +85,36 @@ class TemporalMambaModel(nn.Module):
         signal_dim: int,
         num_outputs: int,
         model_config: ModelConfig,
+        input_mode: str = "standard",
     ) -> None:
         super().__init__()
         if input_dim <= 0 or signal_dim <= 0 or num_outputs <= 0:
             raise ValueError("input_dim, signal_dim, and num_outputs must be positive")
+        if input_mode not in INPUT_MODES:
+            raise ValueError(f"input_mode must be one of {INPUT_MODES}, got {input_mode!r}")
         self.input_dim = input_dim
         self.signal_dim = signal_dim
         self.num_outputs = num_outputs
         self.model_config = model_config
+        self.input_mode = input_mode
 
-        self.input_projection = nn.Linear(input_dim, model_config.d_model)
+        query_bound = input_mode == "query_bound"
+        encoder_input_dim = 5 if query_bound else input_dim
+        prediction_signal_dim = 2 if query_bound else signal_dim
+        self.query_binder = TemporalQueryBinder(signal_dim) if query_bound else None
+        self.query_film = (
+            BoundedQueryFiLM(9, model_config.n_layers, model_config.d_model)
+            if query_bound
+            else None
+        )
+        self.input_projection = nn.Linear(encoder_input_dim, model_config.d_model)
         self.layers = nn.ModuleList(
             [
                 TemporalMambaBlock(
                     d_model=model_config.d_model,
                     d_state=model_config.d_state,
                     expand=model_config.expand,
-                    error_dim=2 * signal_dim,
+                    error_dim=2 * prediction_signal_dim,
                     dt_min=model_config.dt_min,
                     dt_max=model_config.dt_max,
                     alpha_max=model_config.alpha_max,
@@ -110,19 +124,24 @@ class TemporalMambaModel(nn.Module):
             ]
         )
         self.output_norm = RMSNorm(model_config.d_model)
-        self.predictor = NextStepPredictor(model_config.d_model, signal_dim)
-        self.classifier = nn.Linear(model_config.d_model, num_outputs)
+        self.predictor = NextStepPredictor(model_config.d_model, prediction_signal_dim)
+        classifier_dim = 3 * model_config.d_model if query_bound else model_config.d_model
+        self.classifier = nn.Linear(classifier_dim, num_outputs)
 
     def _encode(
         self,
         features: Tensor,
         error: Tensor | None,
+        film: tuple[Tensor, Tensor] | None,
         *,
         return_diagnostics: bool,
     ) -> tuple[Tensor, list[SSMDiagnostics]]:
         hidden = self.input_projection(features.float())
         diagnostics: list[SSMDiagnostics] = []
-        for layer in self.layers:
+        for index, layer in enumerate(self.layers):
+            if film is not None:
+                scale, shift = film
+                hidden = hidden * scale[:, index : index + 1, :] + shift[:, index : index + 1, :]
             if return_diagnostics:
                 hidden, layer_diagnostics = layer(
                     hidden,
@@ -140,6 +159,7 @@ class TemporalMambaModel(nn.Module):
         signal: Tensor,
         *,
         variant: str,
+        query: Tensor | None = None,
         return_diagnostics: bool = False,
     ) -> TemporalModelOutput:
         if variant not in VARIANTS:
@@ -148,14 +168,27 @@ class TemporalMambaModel(nn.Module):
             raise ValueError("features and signal must be B x T x D")
         if features.shape[:2] != signal.shape[:2]:
             raise ValueError("features and signal must align on batch and time")
-        if features.shape[-1] != self.input_dim:
-            raise ValueError(f"features last dimension must be {self.input_dim}")
         if signal.shape[-1] != self.signal_dim:
             raise ValueError(f"signal last dimension must be {self.signal_dim}")
+        if self.input_mode == "query_bound":
+            if query is None:
+                raise ValueError("query_bound input requires query")
+            assert self.query_binder is not None and self.query_film is not None
+            bound = self.query_binder(signal, query)
+            encoded_features = bound.sequence
+            prediction_signal = bound.prediction_signal
+            film = self.query_film(bound.condition)
+        else:
+            if features.shape[-1] != self.input_dim:
+                raise ValueError(f"features last dimension must be {self.input_dim}")
+            encoded_features = features
+            prediction_signal = signal
+            film = None
 
         first_hidden, first_diagnostics = self._encode(
-            features,
+            encoded_features,
             error=None,
+            film=film,
             return_diagnostics=return_diagnostics,
         )
         position_error: Tensor | None = None
@@ -168,20 +201,39 @@ class TemporalMambaModel(nn.Module):
             pass_count = 1
         else:
             if uses_error:
-                position_error, velocity_error = aligned_errors(first_hidden, signal, self.predictor)
+                position_error, velocity_error = aligned_errors(
+                    first_hidden,
+                    prediction_signal,
+                    self.predictor,
+                )
                 error = torch.cat([position_error, velocity_error], dim=-1)
             else:
                 error = None
             final_hidden, second_diagnostics = self._encode(
-                features,
+                encoded_features,
                 error=error,
+                film=film,
                 return_diagnostics=return_diagnostics,
             )
             all_diagnostics = first_diagnostics + second_diagnostics
             pass_count = 2
 
         final_hidden = self.output_norm(final_hidden)
-        logits = self.classifier(final_hidden[:, -1])
+        if self.input_mode == "query_bound":
+            final = final_hidden[:, -1]
+            prefix_max = torch.cummax(final_hidden, dim=1).values[:, -1]
+            prefix_sum = torch.cumsum(final_hidden, dim=1)
+            denominator = torch.arange(
+                1,
+                final_hidden.shape[1] + 1,
+                device=final_hidden.device,
+                dtype=torch.float32,
+            )
+            prefix_mean = (prefix_sum / denominator[None, :, None])[:, -1]
+            readout = torch.cat((final, prefix_max, prefix_mean), dim=-1)
+        else:
+            readout = final_hidden[:, -1]
+        logits = self.classifier(readout)
         if return_diagnostics:
             diagnostics = _aggregate_diagnostics(all_diagnostics)
             diagnostics["finite"] = diagnostics["finite"] & torch.isfinite(logits).all()

@@ -24,6 +24,43 @@ def make_tiny_model(num_outputs=1):
     )
 
 
+def make_tiny_v2_model(num_outputs=1):
+    config = ModelConfig(
+        d_model=8,
+        d_state=4,
+        n_layers=2,
+        expand=1,
+        dt_min=1e-3,
+        dt_max=1e-1,
+        alpha_max=1.38629436112,
+        dropout=0.0,
+    )
+    return TemporalMambaModel(
+        input_dim=34,
+        signal_dim=8,
+        num_outputs=num_outputs,
+        model_config=config,
+        input_mode="query_bound",
+    )
+
+
+def make_v2_query(batch: int, length: int) -> torch.Tensor:
+    query = torch.zeros(batch, 25)
+    for index in range(batch):
+        query[index, index % 6] = 1.0
+        query[index, 6 + index % 8] = 1.0
+        query[index, 14 + (index + 3) % 8] = 1.0
+    query[:, -3:] = torch.tensor([2, length - 3, 1]) / (length - 1)
+    return query
+
+
+def permute_v2_query(query: torch.Tensor, permutation: torch.Tensor) -> torch.Tensor:
+    permuted = query.clone()
+    permuted[:, 6:14] = query[:, 6:14][:, permutation]
+    permuted[:, 14:22] = query[:, 14:22][:, permutation]
+    return permuted
+
+
 @pytest.mark.parametrize(
     ("variant", "passes", "uses_error"),
     [
@@ -106,6 +143,61 @@ def test_multiclass_head_shape():
         variant="vanilla",
     )
     assert output.logits.shape == (4, 6)
+
+
+def test_query_bound_model_is_channel_permutation_invariant():
+    torch.manual_seed(14)
+    model = make_tiny_v2_model().eval()
+    signal = torch.randn(3, 24, 8)
+    query = make_v2_query(batch=3, length=24)
+    permutation = torch.tensor([3, 7, 1, 6, 0, 5, 2, 4])
+
+    first = model(signal, signal, query=query, variant="vanilla")
+    second = model(
+        signal[:, :, permutation],
+        signal[:, :, permutation],
+        query=permute_v2_query(query, permutation),
+        variant="vanilla",
+    )
+
+    torch.testing.assert_close(first.logits, second.logits)
+
+
+def test_v2_readout_and_error_target_use_bound_streams():
+    torch.manual_seed(15)
+    model = make_tiny_v2_model().eval()
+    signal = torch.randn(2, 32, 8)
+    query = make_v2_query(batch=2, length=32)
+
+    output = model(
+        signal,
+        signal,
+        query=query,
+        variant="error_aux",
+        return_diagnostics=True,
+    )
+
+    assert model.classifier.in_features == 3 * model.model_config.d_model
+    assert output.logits.shape == (2, 1)
+    assert output.position_error is not None and output.position_error.shape == (2, 32, 2)
+    assert output.velocity_error is not None and output.velocity_error.shape == (2, 32, 2)
+    assert bool(output.diagnostics["finite"])
+
+
+def test_query_bound_model_requires_query_but_legacy_contract_is_unchanged():
+    bound_model = make_tiny_v2_model().eval()
+    signal = torch.randn(2, 12, 8)
+    with pytest.raises(ValueError, match="requires query"):
+        bound_model(signal, signal, variant="vanilla")
+
+    legacy_model = make_tiny_model().eval()
+    output = legacy_model(
+        torch.randn(2, 12, 20),
+        torch.randn(2, 12, 4),
+        variant="vanilla",
+    )
+    assert output.logits.shape == (2, 1)
+    assert legacy_model.classifier.in_features == legacy_model.model_config.d_model
 
 
 def test_rejects_misaligned_inputs_and_unknown_variant():
