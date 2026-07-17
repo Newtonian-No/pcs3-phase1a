@@ -52,8 +52,21 @@ def _manifest(dataset):
                 "parameter_ood",
                 "noise_ood",
             ],
-            "sizes": {name: 1 for name in ("train", "val", "test", "length_256", "length_512", "parameter_ood", "noise_ood")},
-            "shapes": {"signal": [None, 6]},
+            "sizes": {
+                "train": 18000,
+                "val": 3000,
+                "test": 3000,
+                "length_256": 3000,
+                "length_512": 3000,
+                "parameter_ood": 3000,
+                "noise_ood": 3000,
+            },
+            "shapes": {
+                "signal": [None, 6],
+                "coordinate_targets": [None, 3, 6],
+                "coordinate_mask": [None, 3, 1],
+                "features": [None, 7],
+            },
             "ranges": {"id": {}},
             "normalization": {"source_split": "train", "mean": [0.0], "std": [1.0]},
             "files": {
@@ -690,6 +703,72 @@ def test_gc_summary_rejects_uniform_self_consistent_manifest_tampering(tmp_path)
 
     with pytest.raises(ValueError, match="data_seed"):
         summarize_gc_matrix(tmp_path, "confirm")
+
+
+def test_gc_summary_rejects_uniform_self_consistent_dynamics_contract_tampering(
+    tmp_path,
+):
+    _write_confirm_matrix(
+        tmp_path,
+        synthetic_effects=(0.030, 0.026, 0.034, 0.028, 0.032),
+        uci_effects=(0.015, 0.013, 0.017, 0.014, 0.016),
+    )
+    for spec in expand_gc_matrix("confirm"):
+        if spec.dataset != "generalized_dynamics":
+            continue
+        run_dir = tmp_path / spec.run_id
+        manifest_path = run_dir / "dataset_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["signal_dim"] = 7
+        manifest["seq_len"] = 256
+        manifest["sizes"] = {name: value + 1 for name, value in manifest["sizes"].items()}
+        manifest["shapes"]["signal"][-1] = 7
+        manifest["shapes"]["coordinate_targets"][-1] = 7
+        manifest["shapes"]["features"][-1] = 8
+        manifest["formula_families"] = ["damped", "forced", "switching", "forged"]
+        payload = dict(manifest)
+        payload.pop("manifest_sha256")
+        manifest_hash = _canonical_hash(payload)
+        manifest["manifest_sha256"] = manifest_hash
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        final_path = run_dir / "final.json"
+        final = json.loads(final_path.read_text(encoding="utf-8"))
+        final["dataset_manifest_hash"] = manifest_hash
+        final["hashes"]["manifest_sha256"] = manifest_hash
+        final_path.write_text(json.dumps(final), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="signal_dim|sizes"):
+        summarize_gc_matrix(tmp_path, "confirm")
+
+
+@pytest.mark.parametrize("invalid_size", (True, 1.5, 0, -1))
+def test_gc_summary_rejects_nonpositive_or_noninteger_dynamics_sizes(
+    tmp_path, invalid_size
+):
+    spec = expand_gc_matrix("confirm")[0]
+    _write_gc_final(tmp_path, spec, scores={"id": 0.70, "ood": 0.70})
+    run_dir = tmp_path / spec.run_id
+    manifest_path = run_dir / "dataset_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["sizes"]["train"] = invalid_size
+    payload = dict(manifest)
+    payload.pop("manifest_sha256")
+    manifest_hash = _canonical_hash(payload)
+    manifest["manifest_sha256"] = manifest_hash
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    final_path = run_dir / "final.json"
+    final = json.loads(final_path.read_text(encoding="utf-8"))
+    final["dataset_manifest_hash"] = manifest_hash
+    final["hashes"]["manifest_sha256"] = manifest_hash
+    final_path.write_text(json.dumps(final), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="sizes"):
+        gc_summary_module._validate_sidecars(
+            tmp_path,
+            spec,
+            final,
+            "confirm",
+        )
 
 
 @pytest.mark.parametrize(

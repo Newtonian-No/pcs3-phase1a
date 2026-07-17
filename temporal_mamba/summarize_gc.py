@@ -56,6 +56,7 @@ _GENERALIZED_SPLITS = {
 }
 _UCI_SPLITS = {"train", "val", "test"}
 _UCI_OFFICIAL_SPLITS = {"train", "test"}
+_GENERALIZED_FAMILIES = ["damped", "forced", "switching"]
 
 
 def _load_final(root: Path, spec: RunSpec) -> dict[str, Any]:
@@ -261,12 +262,55 @@ def _validate_manifest_contract(
         generator_version = manifest.get("generator_version")
         if not isinstance(generator_version, str) or not generator_version:
             raise ValueError(f"{spec.run_id} generalized manifest generator_version missing")
+        signal_dim = manifest.get("signal_dim")
+        if (
+            isinstance(signal_dim, bool)
+            or not isinstance(signal_dim, int)
+            or signal_dim != expected_config["signal_dim"]
+        ):
+            raise ValueError(f"{spec.run_id} generalized manifest signal_dim mismatch")
+        seq_len = manifest.get("seq_len")
+        if (
+            isinstance(seq_len, bool)
+            or not isinstance(seq_len, int)
+            or seq_len != expected_config["seq_len"]
+        ):
+            raise ValueError(f"{spec.run_id} generalized manifest seq_len mismatch")
+        if manifest.get("formula_families") != _GENERALIZED_FAMILIES:
+            raise ValueError(f"{spec.run_id} generalized manifest formula_families mismatch")
         splits = manifest.get("splits")
         sizes = manifest.get("sizes")
         if not isinstance(splits, list) or set(splits) != _GENERALIZED_SPLITS:
             raise ValueError(f"{spec.run_id} generalized manifest splits mismatch")
         if not isinstance(sizes, Mapping) or set(sizes) != _GENERALIZED_SPLITS:
             raise ValueError(f"{spec.run_id} generalized manifest sizes mismatch")
+        data = expected_config["data"]
+        expected_sizes = {
+            "train": data["train_size"],
+            "val": data["val_size"],
+            "test": data["test_size"],
+            "length_256": data["long_test_size"],
+            "length_512": data["long_test_size"],
+            "parameter_ood": data["long_test_size"],
+            "noise_ood": data["long_test_size"],
+        }
+        for split, expected_size in expected_sizes.items():
+            size = sizes[split]
+            if (
+                isinstance(size, bool)
+                or not isinstance(size, int)
+                or size <= 0
+                or size != expected_size
+            ):
+                raise ValueError(f"{spec.run_id} generalized manifest sizes mismatch")
+        expected_shapes = {
+            "signal": [None, signal_dim],
+            "coordinate_targets": [None, 3, signal_dim],
+            "coordinate_mask": [None, 3, 1],
+            "features": [None, signal_dim + 1],
+        }
+        if manifest.get("shapes") != expected_shapes:
+            raise ValueError(f"{spec.run_id} generalized manifest shapes mismatch")
         if set(files) != _GENERALIZED_SPLITS:
             raise ValueError(f"{spec.run_id} generalized manifest files mismatch")
         return
