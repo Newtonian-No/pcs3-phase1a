@@ -295,7 +295,7 @@ def _coordinate_statistics(output) -> tuple[list[float], list[float], list[int]]
     )
     mask = output.coordinate_mask.to(device=shaped.device, dtype=torch.bool).expand_as(shaped)
     smooth = F.smooth_l1_loss(shaped, torch.zeros_like(shaped), reduction="none")
-    for order in range(3):
+    for order in range(output.gc_order):
         valid = mask[:, :, order]
         counts[order] = int(valid.sum().item())
         squared[order] = float(torch.where(valid, shaped[:, :, order].square(), 0.0).sum())
@@ -307,15 +307,15 @@ def _finalize_coordinate_statistics(
     squared: list[float],
     auxiliary: list[float],
     counts: list[int],
-) -> tuple[dict[str, float], dict[str, float]]:
+) -> tuple[dict[str, float | None], dict[str, float | None]]:
     error_rms = {
         f"order_{order}": math.sqrt(squared[order] / counts[order])
         if counts[order]
-        else 0.0
+        else None
         for order in range(3)
     }
     auxiliary_losses = {
-        f"order_{order}": auxiliary[order] / counts[order] if counts[order] else 0.0
+        f"order_{order}": auxiliary[order] / counts[order] if counts[order] else None
         for order in range(3)
     }
     return error_rms, auxiliary_losses

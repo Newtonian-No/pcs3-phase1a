@@ -15,6 +15,8 @@ from temporal_mamba.config import (
 from temporal_mamba.model import TemporalMambaModel, TemporalModelOutput
 from temporal_mamba.train import (
     _classification_metrics,
+    _coordinate_statistics,
+    _finalize_coordinate_statistics,
     _guard_output,
     _move_batch,
     build_datasets,
@@ -308,6 +310,55 @@ def test_gc_output_guard_rejects_nonfinite_and_bad_shapes():
         _guard_output(replace(valid, coordinate_errors=bad))
 
 
+@pytest.mark.parametrize(
+    ("variant", "gc_order"),
+    [("vanilla", 0), ("two_pass", 0), ("gc_k1", 1), ("gc_k2", 2)],
+)
+def test_gc_order_diagnostics_mark_unavailable_orders_as_none(variant, gc_order):
+    del variant
+    errors = None if gc_order == 0 else torch.ones(2, 4, 9)
+    mask = None if gc_order == 0 else torch.ones(2, 4, 3, 1, dtype=torch.bool)
+    output = TemporalModelOutput(
+        logits=torch.zeros(2, 3),
+        position_error=None,
+        velocity_error=None,
+        pass_count=1 if gc_order == 0 else 2,
+        uses_error=gc_order > 0,
+        diagnostics={"finite": torch.tensor(True)},
+        coordinate_errors=errors,
+        coordinate_mask=mask,
+        gc_order=gc_order,
+    )
+    squared, auxiliary, counts = _coordinate_statistics(output)
+    rms, losses = _finalize_coordinate_statistics(squared, auxiliary, counts)
+    for order in range(3):
+        key = f"order_{order}"
+        if order < gc_order:
+            assert rms[key] == 1.0
+            assert losses[key] == 0.5
+        else:
+            assert rms[key] is None
+            assert losses[key] is None
+
+
+def test_active_zero_gc_diagnostics_are_zero_not_unavailable():
+    output = TemporalModelOutput(
+        logits=torch.zeros(2, 3),
+        position_error=None,
+        velocity_error=None,
+        pass_count=2,
+        uses_error=True,
+        diagnostics={"finite": torch.tensor(True)},
+        coordinate_errors=torch.zeros(2, 4, 9),
+        coordinate_mask=torch.ones(2, 4, 3, 1, dtype=torch.bool),
+        gc_order=1,
+    )
+    squared, auxiliary, counts = _coordinate_statistics(output)
+    rms, losses = _finalize_coordinate_statistics(squared, auxiliary, counts)
+    assert rms == {"order_0": 0.0, "order_1": None, "order_2": None}
+    assert losses == {"order_0": 0.0, "order_1": None, "order_2": None}
+
+
 def test_gc_models_are_enabled_for_all_matrix_variants():
     config = tiny_gc_config(variant="vanilla")
     counts = []
@@ -589,6 +640,12 @@ def test_gc_final_uses_schema_v3_and_preregistered_views(tmp_path):
     }
     assert set(final["per_order_auxiliary_losses"]) == {"order_0", "order_1", "order_2"}
     assert set(final["per_order_error_rms"]) == {"order_0", "order_1", "order_2"}
+    assert isinstance(final["per_order_auxiliary_losses"]["order_0"], float)
+    assert final["per_order_auxiliary_losses"]["order_1"] is None
+    assert final["per_order_auxiliary_losses"]["order_2"] is None
+    assert isinstance(final["per_order_error_rms"]["order_0"], float)
+    assert final["per_order_error_rms"]["order_1"] is None
+    assert final["per_order_error_rms"]["order_2"] is None
     assert set(final["dt_diagnostics"]) == set(final["metrics"])
     assert final["hashes"] == {
         "git_commit": final["git_commit"],
