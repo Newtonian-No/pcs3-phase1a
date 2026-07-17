@@ -5,7 +5,7 @@ import pytest
 
 from temporal_mamba import run_matrix as run_matrix_module
 from temporal_mamba.config import TRAINING_SEEDS, VARIANTS
-from temporal_mamba.run_matrix import expand_matrix, run_matrix
+from temporal_mamba.run_matrix import V2_VARIANTS, expand_matrix, run_matrix
 from temporal_mamba.summarize import summarize_matrix, validate_matrix
 
 
@@ -15,6 +15,25 @@ def test_full_matrix_is_exact_and_unique():
     assert len({spec.run_id for spec in specs}) == 36
     assert {spec.seed for spec in specs} == set(TRAINING_SEEDS)
     assert {spec.variant for spec in specs} == set(VARIANTS)
+
+
+def test_v2_matrix_is_exact_and_requires_explicit_approved_variants():
+    specs = expand_matrix(
+        datasets=("temporal_logic_v2",),
+        variants=V2_VARIANTS,
+        seeds=TRAINING_SEEDS,
+    )
+    assert len(specs) == 12
+    assert len({spec.run_id for spec in specs}) == 12
+    assert {spec.variant for spec in specs} == set(V2_VARIANTS)
+    assert {spec.seed for spec in specs} == set(TRAINING_SEEDS)
+    assert {spec.config_name for spec in specs} == {"temporal_logic_v2.json"}
+    with pytest.raises(ValueError, match="temporal_logic_v2"):
+        expand_matrix(
+            datasets=("temporal_logic_v2",),
+            variants=("time_reverse",),
+            seeds=(42,),
+        )
 
 
 def _write_fake_final(root, spec, score):

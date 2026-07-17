@@ -18,6 +18,8 @@ from .train import _canonical_hash, _config_payload, _git_commit
 
 
 DATASETS = ("temporal_logic", "uci_har")
+SUPPORTED_DATASETS = DATASETS + ("temporal_logic_v2",)
+V2_VARIANTS = ("vanilla", "two_pass", "error_inject", "error_aux")
 
 
 @dataclass(frozen=True)
@@ -41,7 +43,7 @@ def expand_matrix(
     variants: Sequence[str] = VARIANTS,
     seeds: Sequence[int] = TRAINING_SEEDS,
 ) -> list[RunSpec]:
-    unknown_datasets = set(datasets) - set(DATASETS)
+    unknown_datasets = set(datasets) - set(SUPPORTED_DATASETS)
     unknown_variants = set(variants) - set(VARIANTS)
     unknown_seeds = set(seeds) - set(TRAINING_SEEDS)
     if unknown_datasets:
@@ -50,6 +52,13 @@ def expand_matrix(
         raise ValueError(f"unknown variants: {sorted(unknown_variants)}")
     if unknown_seeds:
         raise ValueError(f"unapproved seeds: {sorted(unknown_seeds)}")
+    if "temporal_logic_v2" in datasets:
+        invalid_v2_variants = set(variants) - set(V2_VARIANTS)
+        if invalid_v2_variants:
+            raise ValueError(
+                "temporal_logic_v2 variants must be selected from "
+                f"{V2_VARIANTS}, got {sorted(invalid_v2_variants)}"
+            )
     return [
         RunSpec(dataset, variant, int(seed))
         for dataset in datasets
@@ -191,7 +200,12 @@ def run_matrix(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--datasets", nargs="+", default=list(DATASETS), choices=DATASETS)
+    parser.add_argument(
+        "--datasets",
+        nargs="+",
+        default=list(DATASETS),
+        choices=SUPPORTED_DATASETS,
+    )
     parser.add_argument("--variants", nargs="+", default=["all"])
     parser.add_argument("--seeds", nargs="+", type=int, default=list(TRAINING_SEEDS))
     parser.add_argument("--artifact-root", type=Path, required=True)
