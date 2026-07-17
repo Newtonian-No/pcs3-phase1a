@@ -16,8 +16,19 @@ VARIANTS = (
     "time_shuffle",
     "time_reverse",
 )
+GC_VARIANTS = (
+    "gc_k1",
+    "gc_k2",
+    "gc_k3",
+    "gc_k3_shuffled",
+    "gc_k3_noise",
+)
+GC_MATRIX_VARIANTS = ("vanilla", "two_pass") + GC_VARIANTS
+GC_SEEDS = (42, 123, 777)
+GC_CONFIRM_SEEDS = (42, 123, 777, 2026, 31415)
+SUPPORTED_VARIANTS = VARIANTS + GC_VARIANTS
 TRAINING_SEEDS = (42, 123, 777)
-DATASETS = ("temporal_logic", "temporal_logic_v2", "uci_har")
+DATASETS = ("temporal_logic", "temporal_logic_v2", "uci_har", "generalized_dynamics")
 INPUT_MODES = ("standard", "raw_concat", "query_bound")
 
 
@@ -67,6 +78,7 @@ class ExperimentConfig:
     variant: str
     seed: int
     input_mode: str = "standard"
+    generalized_coordinates: bool = False
 
     @property
     def pass_count(self) -> int:
@@ -74,7 +86,7 @@ class ExperimentConfig:
 
     @property
     def uses_error(self) -> bool:
-        return self.variant in {
+        return self.variant in GC_VARIANTS or self.variant in {
             "error_inject",
             "error_aux",
             "time_shuffle",
@@ -83,7 +95,29 @@ class ExperimentConfig:
 
     @property
     def uses_aux(self) -> bool:
-        return self.variant in {"error_aux", "time_shuffle", "time_reverse"}
+        return self.variant in GC_VARIANTS or self.variant in {
+            "error_aux",
+            "time_shuffle",
+            "time_reverse",
+        }
+
+    @property
+    def uses_gc(self) -> bool:
+        return self.generalized_coordinates
+
+    @property
+    def uses_gc_aux(self) -> bool:
+        return self.variant in GC_VARIANTS
+
+    @property
+    def gc_order(self) -> int:
+        return {
+            "gc_k1": 1,
+            "gc_k2": 2,
+            "gc_k3": 3,
+            "gc_k3_shuffled": 3,
+            "gc_k3_noise": 3,
+        }.get(self.variant, 0)
 
     @property
     def time_transform(self) -> str:
@@ -131,12 +165,39 @@ def _fraction(name: str, value: Any, *, upper_inclusive: bool = False) -> None:
 def _validate(config: ExperimentConfig) -> None:
     if config.dataset not in DATASETS:
         raise ValueError(f"dataset must be one of {DATASETS}, got {config.dataset!r}")
-    if config.variant not in VARIANTS:
-        raise ValueError(f"variant must be one of {VARIANTS}, got {config.variant!r}")
-    if config.seed not in TRAINING_SEEDS:
-        raise ValueError(f"seed must be one of {TRAINING_SEEDS}, got {config.seed!r}")
+    if config.variant not in SUPPORTED_VARIANTS:
+        raise ValueError(
+            f"variant must be one of {SUPPORTED_VARIANTS}, got {config.variant!r}"
+        )
+    if config.seed not in GC_CONFIRM_SEEDS:
+        raise ValueError(
+            f"seed must be one of {GC_CONFIRM_SEEDS}, got {config.seed!r}"
+        )
     if config.input_mode not in INPUT_MODES:
         raise ValueError(f"input_mode must be one of {INPUT_MODES}, got {config.input_mode!r}")
+    if not isinstance(config.generalized_coordinates, bool):
+        raise ValueError("generalized_coordinates must be a boolean")
+    if config.generalized_coordinates:
+        if config.dataset not in {"generalized_dynamics", "uci_har"}:
+            raise ValueError(
+                "generalized_coordinates is only supported for generalized_dynamics or uci_har"
+            )
+        if config.variant not in GC_MATRIX_VARIANTS:
+            raise ValueError(
+                f"generalized_coordinates variant must be one of {GC_MATRIX_VARIANTS}, "
+                f"got {config.variant!r}"
+            )
+    elif config.variant in GC_VARIANTS:
+        raise ValueError(
+            f"variant {config.variant!r} requires generalized_coordinates=true"
+        )
+    if config.dataset == "temporal_logic_v2" and config.variant not in {
+        "vanilla",
+        "two_pass",
+        "error_inject",
+        "error_aux",
+    }:
+        raise ValueError(f"variant {config.variant!r} is not supported for temporal_logic_v2")
     if config.dataset == "temporal_logic_v2" and config.input_mode not in {"raw_concat", "query_bound"}:
         raise ValueError("input_mode must be raw_concat or query_bound for temporal_logic_v2")
 
@@ -201,9 +262,10 @@ def load_experiment_config(
         "model",
         "training",
         "input_mode",
+        "generalized_coordinates",
     }
     unknown = set(raw) - expected
-    missing = expected - {"input_mode"} - set(raw)
+    missing = expected - {"input_mode", "generalized_coordinates"} - set(raw)
     if unknown:
         raise ValueError(f"unknown config field: {sorted(unknown)[0]}")
     if missing:
@@ -224,6 +286,7 @@ def load_experiment_config(
         variant=variant,
         seed=seed,
         input_mode=raw.get("input_mode", "standard"),
+        generalized_coordinates=raw.get("generalized_coordinates", False),
     )
     _validate(config)
     return config

@@ -3,7 +3,15 @@ from pathlib import Path
 
 import pytest
 
-from temporal_mamba.config import TRAINING_SEEDS, VARIANTS, load_experiment_config
+from temporal_mamba.config import (
+    GC_CONFIRM_SEEDS,
+    GC_MATRIX_VARIANTS,
+    GC_SEEDS,
+    GC_VARIANTS,
+    TRAINING_SEEDS,
+    VARIANTS,
+    load_experiment_config,
+)
 
 
 def test_ablation_contract_is_exact():
@@ -53,6 +61,134 @@ def _valid_config():
             "patience": 8,
         },
     }
+
+
+def test_gc_contract_constants_are_preregistered():
+    assert GC_VARIANTS == (
+        "gc_k1",
+        "gc_k2",
+        "gc_k3",
+        "gc_k3_shuffled",
+        "gc_k3_noise",
+    )
+    assert GC_MATRIX_VARIANTS == ("vanilla", "two_pass") + GC_VARIANTS
+    assert GC_SEEDS == (42, 123, 777)
+    assert GC_CONFIRM_SEEDS == (42, 123, 777, 2026, 31415)
+
+
+def test_generalized_dynamics_gc_orders(tmp_path):
+    raw = _valid_config()
+    raw.update(
+        dataset="generalized_dynamics",
+        signal_dim=6,
+        num_outputs=3,
+        generalized_coordinates=True,
+    )
+    path = tmp_path / "gc.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    expected = {
+        "gc_k1": 1,
+        "gc_k2": 2,
+        "gc_k3": 3,
+        "gc_k3_shuffled": 3,
+        "gc_k3_noise": 3,
+    }
+    for variant, order in expected.items():
+        config = load_experiment_config(path, variant=variant, seed=42)
+        assert config.uses_gc is True
+        assert config.uses_gc_aux is True
+        assert config.uses_error is True
+        assert config.uses_aux is True
+        assert config.gc_order == order
+
+
+def test_gc_baselines_enable_same_modules(tmp_path):
+    raw = _valid_config()
+    raw.update(
+        dataset="uci_har",
+        signal_dim=9,
+        num_outputs=6,
+        generalized_coordinates=True,
+    )
+    raw["data"]["validation_fraction"] = 0.2
+    path = tmp_path / "uci-gc.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    assert load_experiment_config(path, variant="vanilla", seed=42).uses_gc is True
+    assert load_experiment_config(path, variant="two_pass", seed=42).uses_gc is True
+
+
+def test_legacy_variants_remain_unchanged():
+    assert VARIANTS == (
+        "vanilla",
+        "two_pass",
+        "error_inject",
+        "error_aux",
+        "time_shuffle",
+        "time_reverse",
+    )
+
+
+def test_generalized_coordinates_defaults_off(tmp_path):
+    path = tmp_path / "legacy.json"
+    path.write_text(json.dumps(_valid_config()), encoding="utf-8")
+    config = load_experiment_config(path, variant="vanilla", seed=42)
+    assert config.generalized_coordinates is False
+    assert config.uses_gc is False
+    assert config.uses_gc_aux is False
+    assert config.gc_order == 0
+
+
+@pytest.mark.parametrize(
+    ("dataset", "variant", "generalized_coordinates"),
+    [
+        ("temporal_logic", "vanilla", True),
+        ("temporal_logic_v2", "vanilla", True),
+        ("uci_har", "error_aux", True),
+        ("generalized_dynamics", "time_reverse", True),
+        ("generalized_dynamics", "gc_k1", False),
+    ],
+)
+def test_rejects_invalid_gc_dataset_and_variant_combinations(
+    tmp_path, dataset, variant, generalized_coordinates
+):
+    raw = _valid_config()
+    raw.update(
+        dataset=dataset,
+        generalized_coordinates=generalized_coordinates,
+    )
+    if dataset == "uci_har":
+        raw["data"]["validation_fraction"] = 0.2
+    if dataset == "temporal_logic_v2":
+        raw["input_mode"] = "query_bound"
+    path = tmp_path / "invalid-gc.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(ValueError, match="generalized_coordinates|variant"):
+        load_experiment_config(path, variant=variant, seed=42)
+
+
+def test_rejects_non_boolean_generalized_coordinates(tmp_path):
+    raw = _valid_config()
+    raw["generalized_coordinates"] = "yes"
+    path = tmp_path / "invalid-gc-type.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(ValueError, match="generalized_coordinates"):
+        load_experiment_config(path, variant="vanilla", seed=42)
+
+
+def test_v2_retains_existing_variant_restriction(tmp_path):
+    raw = _valid_config()
+    raw.update(dataset="temporal_logic_v2", input_mode="query_bound")
+    path = tmp_path / "v2.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(ValueError, match="variant"):
+        load_experiment_config(path, variant="time_shuffle", seed=42)
+
+
+@pytest.mark.parametrize("seed", GC_CONFIRM_SEEDS)
+def test_confirm_seeds_are_accepted_by_config_contract(tmp_path, seed):
+    path = tmp_path / "cfg.json"
+    path.write_text(json.dumps(_valid_config()), encoding="utf-8")
+    assert load_experiment_config(path, variant="vanilla", seed=seed).seed == seed
 
 
 def test_variant_properties(tmp_path):
