@@ -169,14 +169,13 @@ def _validate(config: ExperimentConfig) -> None:
         raise ValueError(
             f"variant must be one of {SUPPORTED_VARIANTS}, got {config.variant!r}"
         )
-    if config.seed not in GC_CONFIRM_SEEDS:
-        raise ValueError(
-            f"seed must be one of {GC_CONFIRM_SEEDS}, got {config.seed!r}"
-        )
     if config.input_mode not in INPUT_MODES:
         raise ValueError(f"input_mode must be one of {INPUT_MODES}, got {config.input_mode!r}")
     if not isinstance(config.generalized_coordinates, bool):
         raise ValueError("generalized_coordinates must be a boolean")
+    allowed_seeds = GC_CONFIRM_SEEDS if config.generalized_coordinates else TRAINING_SEEDS
+    if config.seed not in allowed_seeds:
+        raise ValueError(f"seed must be one of {allowed_seeds}, got {config.seed!r}")
     if config.generalized_coordinates:
         if config.dataset not in {"generalized_dynamics", "uci_har"}:
             raise ValueError(

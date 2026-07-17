@@ -185,10 +185,30 @@ def test_v2_retains_existing_variant_restriction(tmp_path):
 
 
 @pytest.mark.parametrize("seed", GC_CONFIRM_SEEDS)
-def test_confirm_seeds_are_accepted_by_config_contract(tmp_path, seed):
-    path = tmp_path / "cfg.json"
-    path.write_text(json.dumps(_valid_config()), encoding="utf-8")
+def test_confirm_seeds_are_accepted_by_gc_config_contract(tmp_path, seed):
+    raw = _valid_config()
+    raw.update(dataset="generalized_dynamics", generalized_coordinates=True)
+    path = tmp_path / "gc.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
     assert load_experiment_config(path, variant="vanilla", seed=seed).seed == seed
+
+
+@pytest.mark.parametrize("seed", [2026, 31415])
+@pytest.mark.parametrize(
+    ("dataset", "input_mode"),
+    [("temporal_logic", None), ("temporal_logic_v2", "query_bound")],
+)
+def test_legacy_configs_reject_gc_only_confirm_seeds(
+    tmp_path, seed, dataset, input_mode
+):
+    raw = _valid_config()
+    raw["dataset"] = dataset
+    if input_mode is not None:
+        raw["input_mode"] = input_mode
+    path = tmp_path / "legacy.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(ValueError, match="seed"):
+        load_experiment_config(path, variant="vanilla", seed=seed)
 
 
 def test_variant_properties(tmp_path):
