@@ -5,6 +5,9 @@ from __future__ import annotations
 import numpy as np
 
 
+BINARY_DATASETS = frozenset({"temporal_logic", "temporal_logic_v2"})
+
+
 def _integer_vectors(target, predicted) -> tuple[np.ndarray, np.ndarray]:
     target_array = np.asarray(target)
     predicted_array = np.asarray(predicted)

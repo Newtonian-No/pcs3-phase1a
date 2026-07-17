@@ -48,6 +48,14 @@ def test_task_losses_match_pytorch_definitions():
     torch.testing.assert_close(actual_class, torch.nn.functional.cross_entropy(class_logits, class_target))
 
 
+def test_v2_task_loss_uses_binary_definition():
+    logits = torch.tensor([[0.5], [-1.0]])
+    target = torch.tensor([1.0, 0.0])
+    actual = compute_task_loss(logits, target, dataset="temporal_logic_v2")
+    expected = torch.nn.functional.binary_cross_entropy_with_logits(logits[:, 0], target)
+    torch.testing.assert_close(actual, expected)
+
+
 @pytest.mark.parametrize("variant", ["vanilla", "two_pass", "error_inject"])
 def test_non_aux_variants_force_zero_auxiliary_weight(variant):
     output = TemporalModelOutput(

@@ -11,7 +11,7 @@ import platform
 import random
 import subprocess
 import sys
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -23,9 +23,14 @@ from torch.utils.data import DataLoader, Dataset, Subset
 from .checkpoint import load_checkpoint, save_checkpoint
 from .config import ExperimentConfig, load_experiment_config
 from .datasets.temporal_logic import TemporalLogicDataset, build_temporal_logic_manifest
+from .datasets.temporal_logic_v2 import (
+    V2_SPLITS,
+    TemporalLogicV2Dataset,
+    build_temporal_logic_v2_manifest,
+)
 from .datasets.uci_har import UCIHARDataset, prepare_uci_har
 from .losses import compute_total_loss
-from .metrics import binary_metrics, multiclass_metrics
+from .metrics import BINARY_DATASETS, binary_metrics, multiclass_metrics
 from .model import TemporalMambaModel
 from .numerics import (
     NumericalFailure,
@@ -52,6 +57,14 @@ def _seed_worker(worker_id: int) -> None:
     np.random.seed(worker_seed)
 
 
+@dataclass(frozen=True)
+class BatchTensors:
+    features: Tensor
+    signal: Tensor
+    target: Tensor
+    query: Tensor | None
+
+
 def build_datasets(config: ExperimentConfig, data_root: str | Path) -> dict[str, Dataset]:
     data_root = Path(data_root)
     if config.dataset == "temporal_logic":
@@ -73,6 +86,27 @@ def build_datasets(config: ExperimentConfig, data_root: str | Path) -> dict[str,
         return {
             split: TemporalLogicDataset(data_root, split, transform=config.time_transform)
             for split in ("train", "val", "test", "long_test")
+        }
+    if config.dataset == "temporal_logic_v2":
+        manifest_path = data_root / "manifest.json"
+        if not manifest_path.exists():
+            build_temporal_logic_v2_manifest(
+                data_root,
+                {
+                    "train": config.data.train_size,
+                    "val": config.data.val_size,
+                    "test": config.data.test_size,
+                    "long_test": config.data.long_test_size,
+                    "channel_ood": config.data.test_size,
+                },
+                data_seed=config.data_seed,
+                event_dim=config.signal_dim,
+                seq_len=config.seq_len,
+                long_seq_len=2 * config.seq_len,
+            )
+        return {
+            split: TemporalLogicV2Dataset(data_root, split, transform=config.time_transform)
+            for split in V2_SPLITS
         }
     if config.dataset == "uci_har":
         if not (data_root / "manifest.json").exists():
@@ -107,21 +141,27 @@ def build_loaders(
     return loaders, generator
 
 
-def _move_batch(batch: Mapping[str, Any], device: torch.device) -> tuple[Tensor, Tensor, Tensor]:
+def _move_batch(batch: Mapping[str, Any], device: torch.device) -> BatchTensors:
     features = batch["features"].to(device=device, dtype=torch.float32, non_blocking=True)
     signal = batch["signal"].to(device=device, dtype=torch.float32, non_blocking=True)
     target = batch["target"].to(device=device, non_blocking=True)
-    return features, signal, target
+    raw_query = batch.get("query")
+    query = (
+        raw_query.to(device=device, dtype=torch.float32, non_blocking=True)
+        if isinstance(raw_query, Tensor)
+        else None
+    )
+    return BatchTensors(features=features, signal=signal, target=target, query=query)
 
 
 def _predictions(logits: Tensor, dataset: str) -> Tensor:
-    if dataset == "temporal_logic":
+    if dataset in BINARY_DATASETS:
         return (logits[:, 0] >= 0).long()
     return logits.argmax(dim=-1)
 
 
 def _classification_metrics(dataset: str, target: np.ndarray, predicted: np.ndarray) -> dict[str, object]:
-    if dataset == "temporal_logic":
+    if dataset in BINARY_DATASETS:
         return binary_metrics(target, predicted)
     return multiclass_metrics(target, predicted, num_classes=6)
 
@@ -164,12 +204,14 @@ def train_epoch(
     last_weight = 0.0
 
     for batch in loader:
-        features, signal, target = _move_batch(batch, device)
+        moved = _move_batch(batch, device)
+        features, signal, target = moved.features, moved.signal, moved.target
         optimizer.zero_grad(set_to_none=True)
         output = model(
             features,
             signal,
             variant=config.variant,
+            query=moved.query,
             return_diagnostics=True,
         )
         _guard_output(output)
@@ -253,11 +295,13 @@ def evaluate(
 
     with torch.no_grad():
         for batch in loader:
-            features, signal, target = _move_batch(batch, device)
+            moved = _move_batch(batch, device)
+            features, signal, target = moved.features, moved.signal, moved.target
             output = model(
                 features,
                 signal,
                 variant=config.variant,
+                query=moved.query,
                 return_diagnostics=True,
             )
             _guard_output(output)
@@ -305,7 +349,7 @@ def evaluate(
         predicted_array,
     )
     per_family: dict[str, dict[str, object]] = {}
-    if config.dataset == "temporal_logic":
+    if config.dataset in BINARY_DATASETS:
         family_array = np.asarray(families)
         for family in sorted(set(families)):
             if not family:
@@ -336,7 +380,8 @@ def overfit_tiny_batch(
 ) -> dict[str, Any]:
     if max_steps <= 0 or not 0 < target_accuracy <= 1:
         raise ValueError("invalid tiny-batch gate settings")
-    features, signal, target = _move_batch(batch, device)
+    moved = _move_batch(batch, device)
+    features, signal, target = moved.features, moved.signal, moved.target
     model.eval()
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -347,7 +392,13 @@ def overfit_tiny_batch(
     final_loss = math.inf
     for step in range(1, max_steps + 1):
         optimizer.zero_grad(set_to_none=True)
-        output = model(features, signal, variant=config.variant, return_diagnostics=True)
+        output = model(
+            features,
+            signal,
+            variant=config.variant,
+            query=moved.query,
+            return_diagnostics=True,
+        )
         _guard_output(output)
         breakdown = compute_total_loss(
             output,
@@ -391,7 +442,9 @@ def validation_selection_score(validation_metrics: Mapping[str, Any]) -> float:
 
 
 def _input_dim(config: ExperimentConfig) -> int:
-    if config.dataset == "temporal_logic":
+    if config.dataset == "temporal_logic_v2" and config.input_mode == "query_bound":
+        return 5
+    if config.dataset in BINARY_DATASETS:
         return config.signal_dim + 1 + 6 + 2 * config.signal_dim + 3
     return config.signal_dim + 1
 
@@ -513,6 +566,7 @@ def run_training(
         signal_dim=config.signal_dim,
         num_outputs=config.num_outputs,
         model_config=config.model,
+        input_mode=config.input_mode,
     ).to(resolved_device)
 
     run_id = f"{config.dataset}-{variant}-seed{seed}"
@@ -541,7 +595,7 @@ def run_training(
     _atomic_json(run_dir / "dataset_manifest.json", data_manifest)
 
     if overfit_only:
-        limit = 64 if config.dataset == "temporal_logic" else 48
+        limit = 64 if config.dataset in BINARY_DATASETS else 48
         subset = Subset(datasets["train"], range(min(limit, len(datasets["train"]))))
         gate_loader = DataLoader(subset, batch_size=len(subset), shuffle=False)
         gate = overfit_tiny_batch(
@@ -550,7 +604,7 @@ def run_training(
             config,
             device=resolved_device,
             max_steps=800,
-            target_accuracy=0.98 if config.dataset == "temporal_logic" else 0.95,
+            target_accuracy=0.98 if config.dataset in BINARY_DATASETS else 0.95,
         )
         result = {"status": "complete" if gate["passed"] else "failed", "run_id": run_id, **gate}
         _atomic_json(run_dir / "overfit.json", result)
@@ -694,21 +748,68 @@ def run_training(
         if "long_test" in loaders
         else None
     )
-    original_test_metrics = None
-    if config.time_transform != "none":
-        if config.dataset == "temporal_logic":
-            original_dataset = TemporalLogicDataset(data_root, "test", transform="none")
-        else:
-            original_dataset = UCIHARDataset(data_root, "test", transform="none")
-        original_loader = DataLoader(
-            original_dataset,
+    if config.dataset == "temporal_logic_v2":
+        channel_ood_metrics = evaluate(
+            model,
+            loaders["channel_ood"],
+            config,
+            device=resolved_device,
+        )
+        reverse_loader = DataLoader(
+            TemporalLogicV2Dataset(data_root, "test", transform="reverse"),
             batch_size=config.training.batch_size,
             shuffle=False,
         )
-        original_test_metrics = evaluate(model, original_loader, config, device=resolved_device)
+        shuffle_loader = DataLoader(
+            TemporalLogicV2Dataset(data_root, "test", transform="shuffle"),
+            batch_size=config.training.batch_size,
+            shuffle=False,
+        )
+        final_metrics = {
+            "val": validation_metrics,
+            "test": test_metrics,
+            "long_test": long_metrics,
+            "channel_ood": channel_ood_metrics,
+            "reverse_frozen": evaluate(
+                model,
+                reverse_loader,
+                config,
+                device=resolved_device,
+            ),
+            "shuffle_frozen": evaluate(
+                model,
+                shuffle_loader,
+                config,
+                device=resolved_device,
+            ),
+        }
+    else:
+        original_test_metrics = None
+        if config.time_transform != "none":
+            if config.dataset == "temporal_logic":
+                original_dataset = TemporalLogicDataset(data_root, "test", transform="none")
+            else:
+                original_dataset = UCIHARDataset(data_root, "test", transform="none")
+            original_loader = DataLoader(
+                original_dataset,
+                batch_size=config.training.batch_size,
+                shuffle=False,
+            )
+            original_test_metrics = evaluate(
+                model,
+                original_loader,
+                config,
+                device=resolved_device,
+            )
+        final_metrics = {
+            "val": validation_metrics,
+            "test": test_metrics,
+            "long_test": long_metrics,
+            "original_test": original_test_metrics,
+        }
 
     final: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2 if config.dataset == "temporal_logic_v2" else 1,
         "status": "complete",
         "run_id": run_id,
         "dataset": config.dataset,
@@ -726,12 +827,7 @@ def run_training(
         "uses_error": config.uses_error,
         "uses_aux": config.uses_aux,
         "time_transform": config.time_transform,
-        "metrics": {
-            "val": validation_metrics,
-            "test": test_metrics,
-            "long_test": long_metrics,
-            "original_test": original_test_metrics,
-        },
+        "metrics": final_metrics,
     }
     _atomic_json(final_path, final)
     return final

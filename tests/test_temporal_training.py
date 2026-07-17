@@ -13,6 +13,8 @@ from temporal_mamba.config import (
 )
 from temporal_mamba.model import TemporalMambaModel, TemporalModelOutput
 from temporal_mamba.train import (
+    _move_batch,
+    build_datasets,
     build_loaders,
     evaluate,
     overfit_tiny_batch,
@@ -55,6 +57,22 @@ def tiny_config(variant="vanilla", epochs=2):
         training=TrainingConfig(epochs, 8, 2e-3, 0.0, 0.05, 0.1, 0.5, 3),
         variant=variant,
         seed=42,
+    )
+
+
+def tiny_v2_config(variant="vanilla", epochs=1):
+    return ExperimentConfig(
+        dataset="temporal_logic_v2",
+        data_seed=20260717,
+        signal_dim=8,
+        num_outputs=1,
+        seq_len=16,
+        data=DataConfig(12, 12, 12, 12, 0.0),
+        model=ModelConfig(8, 3, 1, 1, 1e-3, 1e-1, 1.38629436112, 0.0),
+        training=TrainingConfig(epochs, 6, 2e-3, 0.0, 0.05, 0.1, 0.5, 2),
+        variant=variant,
+        seed=42,
+        input_mode="query_bound",
     )
 
 
@@ -102,7 +120,8 @@ def test_one_train_epoch_updates_parameters_and_records_contract(
 
 
 class EchoModel(torch.nn.Module):
-    def forward(self, features, signal, *, variant, return_diagnostics=False):
+    def forward(self, features, signal, *, variant, query=None, return_diagnostics=False):
+        del signal, variant, query, return_diagnostics
         logits = features[:, -1, :1] * 10
         zero = logits.new_zeros(())
         return TemporalModelOutput(
@@ -143,6 +162,27 @@ def test_loader_shuffle_is_seeded():
     ids_a = next(iter(loaders_a["train"]))["sample_id"]
     ids_b = next(iter(loaders_b["train"]))["sample_id"]
     assert ids_a == ids_b
+
+
+def test_build_v2_datasets_has_all_required_views(tmp_path):
+    datasets = build_datasets(tiny_v2_config(), tmp_path / "data")
+    assert set(datasets) == {"train", "val", "test", "long_test", "channel_ood"}
+
+
+def test_move_batch_preserves_optional_query():
+    moved = _move_batch(
+        {
+            "features": torch.randn(2, 8, 34),
+            "signal": torch.randn(2, 8, 8),
+            "query": torch.randn(2, 25),
+            "target": torch.tensor([0.0, 1.0]),
+        },
+        torch.device("cpu"),
+    )
+    assert moved.query is not None and moved.query.shape == (2, 25)
+    assert moved.features.shape == (2, 8, 34)
+    assert moved.signal.shape == (2, 8, 8)
+    assert moved.target.shape == (2,)
 
 
 def test_validation_selection_score_ignores_test_metrics():
@@ -231,3 +271,70 @@ def test_run_training_writes_complete_artifact_schema(tmp_path):
     assert final["status"] == "complete"
     assert final["run_id"] == "temporal_logic-vanilla-seed42"
     assert final["selection_split"] == "val"
+
+
+def test_v2_final_contains_ood_and_frozen_control_metrics(tmp_path):
+    raw = {
+        "dataset": "temporal_logic_v2",
+        "input_mode": "query_bound",
+        "data_seed": 20260717,
+        "signal_dim": 8,
+        "num_outputs": 1,
+        "seq_len": 16,
+        "data": {
+            "train_size": 12,
+            "val_size": 12,
+            "test_size": 12,
+            "long_test_size": 12,
+            "validation_fraction": 0.0,
+        },
+        "model": {
+            "d_model": 8,
+            "d_state": 3,
+            "n_layers": 1,
+            "expand": 1,
+            "dt_min": 0.001,
+            "dt_max": 0.1,
+            "alpha_max": 1.38629436112,
+            "dropout": 0.0,
+        },
+        "training": {
+            "epochs": 1,
+            "batch_size": 6,
+            "lr": 0.002,
+            "weight_decay": 0.0,
+            "warmup_fraction": 0.05,
+            "lambda_aux": 0.1,
+            "aux_warmup_fraction": 0.1,
+            "patience": 2,
+        },
+    }
+    config_path = tmp_path / "tiny-v2.json"
+    config_path.write_text(json.dumps(raw), encoding="utf-8")
+
+    final = run_training(
+        config_path=config_path,
+        variant="vanilla",
+        seed=42,
+        data_root=tmp_path / "data-v2",
+        artifact_root=tmp_path / "artifacts-v2",
+        device="cpu",
+    )
+
+    assert final["schema_version"] == 2
+    assert set(final["metrics"]) == {
+        "val",
+        "test",
+        "long_test",
+        "channel_ood",
+        "reverse_frozen",
+        "shuffle_frozen",
+    }
+    assert set(final["metrics"]["channel_ood"]["per_family"]) == {
+        "EVENTUALLY",
+        "BEFORE",
+        "UNTIL",
+        "BOUNDED_RESPONSE",
+        "COUNT_WITHIN",
+        "GAP",
+    }

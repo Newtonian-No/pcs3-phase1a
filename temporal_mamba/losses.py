@@ -11,6 +11,7 @@ from torch.nn import functional as F
 
 from .config import VARIANTS
 from .model import TemporalModelOutput
+from .metrics import BINARY_DATASETS
 
 
 _AUX_VARIANTS = {"error_aux", "time_shuffle", "time_reverse"}
@@ -46,9 +47,9 @@ def auxiliary_weight(
 
 
 def compute_task_loss(logits: Tensor, target: Tensor, *, dataset: str) -> Tensor:
-    if dataset == "temporal_logic":
+    if dataset in BINARY_DATASETS:
         if logits.ndim != 2 or logits.shape[-1] != 1:
-            raise ValueError("temporal_logic logits must be B x 1")
+            raise ValueError("temporal logic logits must be B x 1")
         target = target.float().reshape(-1)
         if len(target) != logits.shape[0]:
             raise ValueError("logits and target batch sizes differ")
