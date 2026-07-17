@@ -165,4 +165,3 @@ def test_v2_summary_rejects_extra_runs_and_mixed_commits(tmp_path):
     path.write_text(json.dumps(final), encoding="utf-8")
     with pytest.raises(ValueError, match="git_commit"):
         summarize_v2_matrix(tmp_path, report_path=tmp_path / "report.md")
-

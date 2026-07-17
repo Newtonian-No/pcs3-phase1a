@@ -126,4 +126,3 @@ class BoundedQueryFiLM(nn.Module):
         scale = 1.0 + self.scale_limit * torch.tanh(raw[:, :, 0])
         shift = self.shift_limit * torch.tanh(raw[:, :, 1])
         return scale, shift
-

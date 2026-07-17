@@ -124,4 +124,3 @@ def test_v2_transform_keeps_frozen_label_and_structured_query(tmp_path):
     assert item["features"].shape == (128, 34)
     assert item["base_target"] == item["target"]
     assert item["formula_family"] in FORMULA_FAMILIES
-

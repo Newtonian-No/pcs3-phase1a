@@ -146,4 +146,3 @@ def test_film_rejects_wrong_condition_shape():
     film = BoundedQueryFiLM(condition_dim=9, n_layers=2, d_model=4)
     with pytest.raises(ValueError, match="condition"):
         film(torch.zeros(3, 8))
-
