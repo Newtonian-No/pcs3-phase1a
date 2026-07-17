@@ -61,8 +61,15 @@ def aligned_coordinate_errors(
         raise ValueError("coordinate targets must be B x T x 3 x D")
     if hidden.shape[:2] != targets.shape[:2]:
         raise ValueError("hidden and coordinate targets must align on batch and time")
-    if coordinates.mask.shape != (*targets.shape[:3], 1):
-        raise ValueError("coordinate mask must be B x T x 3 x 1")
+    mask_shape = (*targets.shape[:3], 1)
+    try:
+        coordinate_mask = torch.broadcast_to(
+            coordinates.mask.to(device=targets.device, dtype=torch.bool), mask_shape
+        )
+    except RuntimeError as error:
+        raise ValueError(
+            "coordinate mask must be broadcastable to B x T x 3 x 1"
+        ) from error
 
     predictions = predictor(hidden.detach())
     if predictions.shape != targets.shape:
@@ -72,7 +79,7 @@ def aligned_coordinate_errors(
     errors = torch.zeros_like(detached_targets)
     errors[:, 1:] = detached_targets[:, 1:] - predictions[:, :-1]
 
-    valid = coordinates.mask.to(device=errors.device, dtype=torch.bool).clone()
+    valid = coordinate_mask.clone()
     valid[:, 0] = False
     expanded_valid = valid.expand_as(errors)
     squared_sum = torch.where(expanded_valid, errors.square(), 0.0).sum(
@@ -97,12 +104,42 @@ def select_active_orders(errors: Tensor, active_order: int) -> Tensor:
     return selected.flatten(start_dim=2)
 
 
-def controlled_error(error: Tensor, mode: str, *, seed: int) -> Tensor:
+def controlled_error(
+    error: Tensor,
+    mode: str,
+    *,
+    valid: Tensor,
+    seed: int,
+) -> Tensor:
     """Build a deterministic shuffled or moment-matched noise control."""
 
     if error.ndim != 3:
         raise ValueError("error must be B x T x F")
     value = error.float()
+    if valid.ndim == 4:
+        if value.shape[-1] % 3 != 0:
+            raise ValueError("flattened coordinate width must be divisible by 3")
+        coordinate_shape = (*value.shape[:2], 3, value.shape[-1] // 3)
+        try:
+            flat_valid = torch.broadcast_to(
+                valid.to(device=value.device, dtype=torch.bool), coordinate_shape
+            ).reshape_as(value)
+        except RuntimeError as mask_error:
+            raise ValueError(
+                "valid must be broadcastable to B x T x 3 x D"
+            ) from mask_error
+    elif valid.ndim == 3:
+        try:
+            flat_valid = torch.broadcast_to(
+                valid.to(device=value.device, dtype=torch.bool), value.shape
+            )
+        except RuntimeError as mask_error:
+            raise ValueError(
+                "valid must be broadcastable to B x T x F"
+            ) from mask_error
+    else:
+        raise ValueError("valid must be B x T x F or B x T x 3 x D")
+
     generator = torch.Generator(device=value.device)
     generator.manual_seed(seed)
 
@@ -110,18 +147,29 @@ def controlled_error(error: Tensor, mode: str, *, seed: int) -> Tensor:
         permutation = torch.randperm(
             value.shape[0], device=value.device, generator=generator
         )
-        return value[permutation]
+        return torch.where(flat_valid, value[permutation], 0.0)
     if mode == "gc_k3_noise":
-        noise = torch.randn(
-            value.shape,
-            dtype=torch.float32,
-            device=value.device,
-            generator=generator,
-        )
-        noise_mean = noise.mean(dim=(0, 1), keepdim=True)
-        noise_std = noise.std(dim=(0, 1), keepdim=True)
-        standardized = (noise - noise_mean) / noise_std.clamp_min(1e-6)
-        observed_mean = value.mean(dim=(0, 1), keepdim=True)
-        observed_std = value.std(dim=(0, 1), keepdim=True)
-        return standardized * observed_std + observed_mean
+        controlled = torch.zeros_like(value)
+        for channel in range(value.shape[-1]):
+            channel_valid = flat_valid[..., channel]
+            valid_count = int(channel_valid.sum().item())
+            if valid_count == 0:
+                continue
+            observed = value[..., channel][channel_valid]
+            observed_mean = observed.mean()
+            if valid_count == 1:
+                replacement = observed_mean.reshape(1)
+            else:
+                gaussian = torch.randn(
+                    valid_count,
+                    dtype=torch.float32,
+                    device=value.device,
+                    generator=generator,
+                )
+                standardized = (gaussian - gaussian.mean()) / gaussian.std().clamp_min(
+                    1e-6
+                )
+                replacement = standardized * observed.std() + observed_mean
+            controlled[..., channel][channel_valid] = replacement
+        return controlled
     raise ValueError(f"unsupported control mode: {mode!r}")
