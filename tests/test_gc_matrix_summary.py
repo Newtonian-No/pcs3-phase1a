@@ -1,12 +1,25 @@
+import hashlib
 import json
+import sys
 from types import SimpleNamespace
 
 import pytest
 
 from temporal_mamba import run_gc_matrix as gc_runner_module
+from temporal_mamba import summarize_gc as gc_summary_module
 from temporal_mamba.config import GC_MATRIX_VARIANTS
 from temporal_mamba.run_gc_matrix import expand_gc_matrix, run_gc_matrix
 from temporal_mamba.summarize_gc import summarize_gc_matrix
+
+
+def _canonical_hash(value):
+    canonical = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _manifest(dataset):
+    payload = {"schema_version": 1, "dataset": dataset}
+    return {**payload, "manifest_sha256": _canonical_hash(payload)}
 
 
 def test_gc_stage_matrix_sizes_and_preregistered_seeds():
@@ -29,6 +42,42 @@ def test_gc_matrix_rejects_unknown_or_missing_stage():
         expand_gc_matrix()
 
 
+def test_gc_runner_cli_requires_stage_and_dry_run_expands_only_gc_jobs(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setattr(sys, "argv", ["run_gc_matrix"])
+    with pytest.raises(SystemExit):
+        gc_runner_module._parse_args()
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_gc_matrix",
+            "--stage",
+            "smoke",
+            "--artifact-root",
+            str(tmp_path / "artifacts"),
+            "--data-root",
+            str(tmp_path / "data"),
+            "--dry-run",
+        ],
+    )
+    gc_runner_module.main()
+
+    assert len(capsys.readouterr().out.strip().splitlines()) == 14
+
+
+def test_gc_summary_cli_requires_stage(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["summarize_gc", "--artifact-root", str(tmp_path)],
+    )
+    with pytest.raises(SystemExit):
+        gc_summary_module._parse_args()
+
+
 def test_gc_matrix_uses_only_gc_configs_and_variants():
     specs = expand_gc_matrix("confirm")
 
@@ -40,19 +89,58 @@ def test_gc_matrix_uses_only_gc_configs_and_variants():
 def test_smoke_runs_tiny_gate_then_one_epoch_training(tmp_path, monkeypatch):
     spec = expand_gc_matrix("smoke")[0]
     calls = []
+    config_dir = tmp_path / "configs"
+    data_root = tmp_path / "data"
+    artifact_root = tmp_path / "artifacts"
+    config_dir.mkdir()
+    source_config = json.loads(
+        (gc_runner_module.Path("configs") / "generalized_dynamics_gc.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    (config_dir / "generalized_dynamics_gc.json").write_text(
+        json.dumps(source_config), encoding="utf-8"
+    )
+    manifest_dir = data_root / spec.dataset
+    manifest_dir.mkdir(parents=True)
+    manifest = _manifest(spec.dataset)
+    (manifest_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(gc_runner_module, "_git_commit", lambda: "abc")
+    expected = gc_runner_module._expected_metadata(
+        spec,
+        stage="smoke",
+        config_dir=config_dir,
+        data_root=data_root,
+    )
 
     def fake_run(command, *, check, env):
         calls.append(command)
+        if "--overfit-only" not in command:
+            run_dir = artifact_root / spec.run_id
+            run_dir.mkdir(parents=True, exist_ok=True)
+            (run_dir / "final.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 3,
+                        "status": "complete",
+                        "run_id": spec.run_id,
+                        "dataset": spec.dataset,
+                        "variant": spec.variant,
+                        "seed": spec.seed,
+                        **expected,
+                    }
+                ),
+                encoding="utf-8",
+            )
         return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr(gc_runner_module.subprocess, "run", fake_run)
-    monkeypatch.setattr(gc_runner_module, "_git_commit", lambda: "abc")
     completed = run_gc_matrix(
         "smoke",
         specs=(spec,),
-        artifact_root=tmp_path / "artifacts",
-        data_root=tmp_path / "data",
-        config_dir=tmp_path / "configs",
+        artifact_root=artifact_root,
+        data_root=data_root,
+        config_dir=config_dir,
     )
 
     assert completed == [spec.run_id]
@@ -66,7 +154,44 @@ def test_smoke_runs_tiny_gate_then_one_epoch_training(tmp_path, monkeypatch):
     )
 
 
-def test_completed_artifact_reuse_requires_all_identity_hashes(tmp_path, monkeypatch):
+def test_gc_runner_rejects_zero_exit_without_matching_final(tmp_path, monkeypatch):
+    spec = expand_gc_matrix("screen")[0]
+    config_dir = tmp_path / "configs"
+    data_root = tmp_path / "data"
+    config_dir.mkdir()
+    source = gc_runner_module.Path("configs") / "generalized_dynamics_gc.json"
+    (config_dir / "generalized_dynamics_gc.json").write_text(
+        source.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    manifest_dir = data_root / spec.dataset
+    manifest_dir.mkdir(parents=True)
+    (manifest_dir / "manifest.json").write_text(
+        json.dumps(_manifest(spec.dataset)), encoding="utf-8"
+    )
+    monkeypatch.setattr(gc_runner_module, "_git_commit", lambda: "abc")
+    monkeypatch.setattr(
+        gc_runner_module.subprocess,
+        "run",
+        lambda command, *, check, env: SimpleNamespace(returncode=0),
+    )
+
+    with pytest.raises(ValueError, match="completed final"):
+        run_gc_matrix(
+            "screen",
+            specs=(spec,),
+            artifact_root=tmp_path / "artifacts",
+            data_root=data_root,
+            config_dir=config_dir,
+        )
+
+
+@pytest.mark.parametrize(
+    "field",
+    ("run_id", "git_commit", "config_hash", "dataset_manifest_hash"),
+)
+def test_completed_artifact_reuse_requires_all_identity_hashes(
+    tmp_path, monkeypatch, field
+):
     spec = expand_gc_matrix("confirm")[0]
     config_dir = tmp_path / "configs"
     data_root = tmp_path / "data"
@@ -82,7 +207,7 @@ def test_completed_artifact_reuse_requires_all_identity_hashes(tmp_path, monkeyp
     manifest_dir = data_root / spec.dataset
     manifest_dir.mkdir(parents=True)
     (manifest_dir / "manifest.json").write_text(
-        json.dumps({"manifest_sha256": "manifest-a"}), encoding="utf-8"
+        json.dumps(_manifest(spec.dataset)), encoding="utf-8"
     )
     monkeypatch.setattr(gc_runner_module, "_git_commit", lambda: "commit-a")
     expected = gc_runner_module._expected_metadata(
@@ -113,7 +238,7 @@ def test_completed_artifact_reuse_requires_all_identity_hashes(tmp_path, monkeyp
         config_dir=config_dir,
     ) == [spec.run_id]
 
-    final["dataset_manifest_hash"] = "wrong"
+    final[field] = "wrong"
     path.write_text(json.dumps(final), encoding="utf-8")
     with pytest.raises(ValueError, match="metadata mismatch"):
         run_gc_matrix(
@@ -149,8 +274,22 @@ def _write_gc_final(root, spec, *, scores, commit="commit-a", manifest=None):
         view: _metric(scores.get(view, scores["ood"] if view != "test" else scores["id"]), dataset=spec.dataset)
         for view in views
     }
-    manifest = manifest or f"manifest-{spec.dataset}"
-    config_hash = f"config-{spec.run_id}"
+    manifest = manifest or _manifest(spec.dataset)
+    manifest_hash = manifest["manifest_sha256"]
+    config = {
+        "dataset": spec.dataset,
+        "variant": spec.variant,
+        "seed": spec.seed,
+        "generalized_coordinates": True,
+        "gc_order": {
+            "gc_k1": 1,
+            "gc_k2": 2,
+            "gc_k3": 3,
+            "gc_k3_shuffled": 3,
+            "gc_k3_noise": 3,
+        }.get(spec.variant, 0),
+    }
+    config_hash = _canonical_hash(config)
     final = {
         "schema_version": 3,
         "status": "complete",
@@ -159,7 +298,7 @@ def _write_gc_final(root, spec, *, scores, commit="commit-a", manifest=None):
         "variant": spec.variant,
         "seed": spec.seed,
         "config_hash": config_hash,
-        "dataset_manifest_hash": manifest,
+        "dataset_manifest_hash": manifest_hash,
         "git_commit": commit,
         "gc_order": {
             "gc_k1": 1,
@@ -181,7 +320,7 @@ def _write_gc_final(root, spec, *, scores, commit="commit-a", manifest=None):
         "hashes": {
             "git_commit": commit,
             "config_sha256": config_hash,
-            "manifest_sha256": manifest,
+            "manifest_sha256": manifest_hash,
         },
         "environment": {"git_commit": commit, "cuda_available": True},
         "metrics": metrics,
@@ -189,6 +328,10 @@ def _write_gc_final(root, spec, *, scores, commit="commit-a", manifest=None):
     run_dir = root / spec.run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "final.json").write_text(json.dumps(final), encoding="utf-8")
+    (run_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+    (run_dir / "dataset_manifest.json").write_text(
+        json.dumps(manifest), encoding="utf-8"
+    )
 
 
 def _write_confirm_matrix(
@@ -249,6 +392,13 @@ def test_confirm_decision_has_supported_uncertain_and_not_supported(tmp_path):
 
     supported_summary = summarize_gc_matrix(supported, "confirm")
     assert supported_summary["decision"] == "supported"
+    persisted = json.loads((supported / "summary.json").read_text(encoding="utf-8"))
+    assert persisted["completed_jobs"] == 70
+    assert persisted["git_commit"] == "commit-a"
+    assert persisted["dataset_manifest_hashes"] == {
+        dataset: _manifest(dataset)["manifest_sha256"]
+        for dataset in ("generalized_dynamics", "uci_har")
+    }
     assert supported_summary["domains"]["generalized_dynamics"]["k3_minus_two_pass"][
         "ci95"
     ]["critical_value"] == pytest.approx(2.776445105)
@@ -260,6 +410,8 @@ def test_confirm_decision_has_supported_uncertain_and_not_supported(tmp_path):
     report = (supported / "report_zh.md").read_text(encoding="utf-8")
     assert "结论：supported" in report
     assert "逐种子" in report
+    assert "generalized_dynamics config hashes" in report
+    assert "uci_har config hashes" in report
 
 
 def test_screen_gate_requires_positive_mean_and_two_simultaneous_control_wins(tmp_path):
@@ -324,4 +476,62 @@ def test_gc_summary_rejects_missing_job(tmp_path):
     (tmp_path / missing.run_id / "final.json").unlink()
 
     with pytest.raises(ValueError, match="missing"):
+        summarize_gc_matrix(tmp_path, "confirm")
+
+
+@pytest.mark.parametrize(
+    ("sidecar", "message"),
+    (
+        ("config.json", "config.json"),
+        ("dataset_manifest.json", "dataset_manifest.json"),
+    ),
+)
+def test_gc_summary_requires_every_run_sidecar(tmp_path, sidecar, message):
+    _write_confirm_matrix(
+        tmp_path,
+        synthetic_effects=(0.030, 0.026, 0.034, 0.028, 0.032),
+        uci_effects=(0.015, 0.013, 0.017, 0.014, 0.016),
+    )
+    spec = expand_gc_matrix("confirm")[0]
+    (tmp_path / spec.run_id / sidecar).unlink()
+
+    with pytest.raises(ValueError, match=message):
+        summarize_gc_matrix(tmp_path, "confirm")
+
+
+def test_gc_summary_recomputes_config_sidecar_hash(tmp_path):
+    _write_confirm_matrix(
+        tmp_path,
+        synthetic_effects=(0.030, 0.026, 0.034, 0.028, 0.032),
+        uci_effects=(0.015, 0.013, 0.017, 0.014, 0.016),
+    )
+    spec = expand_gc_matrix("confirm")[0]
+    path = tmp_path / spec.run_id / "config.json"
+    config = json.loads(path.read_text(encoding="utf-8"))
+    config["seed"] = 999
+    path.write_text(json.dumps(config), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="config.*hash"):
+        summarize_gc_matrix(tmp_path, "confirm")
+
+
+def test_gc_summary_rejects_uniformly_forged_manifest_claims(tmp_path):
+    _write_confirm_matrix(
+        tmp_path,
+        synthetic_effects=(0.030, 0.026, 0.034, 0.028, 0.032),
+        uci_effects=(0.015, 0.013, 0.017, 0.014, 0.016),
+    )
+    for spec in expand_gc_matrix("confirm"):
+        run_dir = tmp_path / spec.run_id
+        manifest_path = run_dir / "dataset_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["manifest_sha256"] = "forged"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        final_path = run_dir / "final.json"
+        final = json.loads(final_path.read_text(encoding="utf-8"))
+        final["dataset_manifest_hash"] = "forged"
+        final["hashes"]["manifest_sha256"] = "forged"
+        final_path.write_text(json.dumps(final), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="manifest.*canonical"):
         summarize_gc_matrix(tmp_path, "confirm")

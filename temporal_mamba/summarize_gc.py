@@ -13,6 +13,7 @@ from .config import GC_MATRIX_VARIANTS
 from .run_gc_matrix import GC_DATASETS, GC_STAGES, Stage, expand_gc_matrix
 from .run_matrix import RunSpec
 from .summarize import _atomic_text, _check_numeric_tree
+from .train import _canonical_hash
 
 
 _T95_N5 = 2.776445105
@@ -48,6 +49,18 @@ def _load_final(root: Path, spec: RunSpec) -> dict[str, Any]:
         raise ValueError(f"invalid final artifact JSON: {spec.run_id}: {exc}") from exc
     if not isinstance(value, dict):
         raise ValueError(f"final artifact must be an object: {spec.run_id}")
+    return value
+
+
+def _load_sidecar(path: Path, spec: RunSpec) -> dict[str, Any]:
+    if not path.exists():
+        raise ValueError(f"missing {path.name} sidecar: {spec.run_id}")
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"invalid {path.name} sidecar: {spec.run_id}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"{spec.run_id} {path.name} sidecar must be an object")
     return value
 
 
@@ -163,6 +176,36 @@ def _validate_final(final: Mapping[str, Any], spec: RunSpec) -> None:
     _check_numeric_tree(final, spec.run_id)
 
 
+def _validate_sidecars(
+    root: Path,
+    spec: RunSpec,
+    final: Mapping[str, Any],
+) -> tuple[str, str]:
+    run_dir = root / spec.run_id
+    config = _load_sidecar(run_dir / "config.json", spec)
+    config_hash = _canonical_hash(config)
+    if config_hash != final["config_hash"]:
+        raise ValueError(f"{spec.run_id} config sidecar hash mismatch")
+    if config_hash != final["hashes"]["config_sha256"]:
+        raise ValueError(f"{spec.run_id} config sidecar hash copy mismatch")
+
+    manifest = _load_sidecar(run_dir / "dataset_manifest.json", spec)
+    claimed_manifest_hash = _require_hash(
+        manifest.get("manifest_sha256"),
+        f"{spec.run_id}.dataset_manifest.json.manifest_sha256",
+    )
+    canonical_manifest = dict(manifest)
+    canonical_manifest.pop("manifest_sha256", None)
+    actual_manifest_hash = _canonical_hash(canonical_manifest)
+    if claimed_manifest_hash != actual_manifest_hash:
+        raise ValueError(f"{spec.run_id} manifest claim does not match canonical contents")
+    if claimed_manifest_hash != final["dataset_manifest_hash"]:
+        raise ValueError(f"{spec.run_id} manifest sidecar hash mismatch")
+    if claimed_manifest_hash != final["hashes"]["manifest_sha256"]:
+        raise ValueError(f"{spec.run_id} manifest sidecar hash copy mismatch")
+    return config_hash, claimed_manifest_hash
+
+
 def _validate_matrix(
     root: Path,
     specs: Sequence[RunSpec],
@@ -180,12 +223,15 @@ def _validate_matrix(
     finals: dict[str, dict[str, Any]] = {}
     commits: set[str] = set()
     manifests: dict[str, set[str]] = {dataset: set() for dataset in GC_DATASETS}
+    config_hashes: dict[str, set[str]] = {dataset: set() for dataset in GC_DATASETS}
     parameter_counts: dict[str, set[int]] = {dataset: set() for dataset in GC_DATASETS}
     for spec in specs:
         final = _load_final(root, spec)
         _validate_final(final, spec)
+        config_hash, manifest_hash = _validate_sidecars(root, spec, final)
         commits.add(str(final["git_commit"]))
-        manifests[spec.dataset].add(str(final["dataset_manifest_hash"]))
+        config_hashes[spec.dataset].add(config_hash)
+        manifests[spec.dataset].add(manifest_hash)
         parameter_counts[spec.dataset].add(int(final["parameter_count"]))
         finals[spec.run_id] = final
     if len(commits) != 1:
@@ -205,6 +251,9 @@ def _validate_matrix(
         "git_commit": next(iter(commits)),
         "dataset_manifest_hashes": {
             dataset: next(iter(manifests[dataset])) for dataset in GC_DATASETS
+        },
+        "config_hashes": {
+            dataset: sorted(config_hashes[dataset]) for dataset in GC_DATASETS
         },
         "parameter_counts": {
             dataset: next(iter(parameter_counts[dataset])) for dataset in GC_DATASETS
@@ -379,6 +428,10 @@ def _report_zh(summary: Mapping[str, Any]) -> str:
         "",
     ]
     for dataset in GC_DATASETS:
+        hashes = validation["config_hashes"][dataset]
+        lines.append(f"- {dataset} config hashes（{len(hashes)}）：`{json.dumps(hashes)}`")
+    lines.append("")
+    for dataset in GC_DATASETS:
         domain = summary["domains"][dataset]
         lines.extend(
             [
@@ -460,6 +513,9 @@ def summarize_gc_matrix(artifact_root: str | Path, stage: Stage) -> dict[str, ob
     summary: dict[str, Any] = {
         "schema_version": 3,
         "stage": stage,
+        "completed_jobs": validation["complete_runs"],
+        "git_commit": validation["git_commit"],
+        "dataset_manifest_hashes": dict(validation["dataset_manifest_hashes"]),
         "validation": validation,
         "domains": domains,
         "screen_gate": screen_gate,

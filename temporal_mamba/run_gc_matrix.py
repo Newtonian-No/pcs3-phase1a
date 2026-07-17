@@ -70,11 +70,13 @@ def _expected_metadata(
     stage: Stage,
     config_dir: Path,
     data_root: Path,
-) -> dict[str, str] | None:
+) -> dict[str, str]:
     config_path = _config_path(config_dir, spec)
     manifest_path = data_root / spec.dataset / "manifest.json"
-    if not config_path.exists() or not manifest_path.exists():
-        return None
+    if not config_path.exists():
+        raise ValueError(f"missing GC config: {config_path}")
+    if not manifest_path.exists():
+        raise ValueError(f"missing dataset manifest: {manifest_path}")
     config = load_experiment_config(config_path, variant=spec.variant, seed=spec.seed)
     if stage == "smoke":
         config = replace(config, training=replace(config.training, epochs=1))
@@ -85,6 +87,10 @@ def _expected_metadata(
         raise ValueError(f"invalid dataset manifest for {spec.dataset}: {exc}") from exc
     if not isinstance(manifest_hash, str) or not manifest_hash:
         raise ValueError(f"invalid dataset manifest hash for {spec.dataset}")
+    canonical_manifest = dict(manifest)
+    canonical_manifest.pop("manifest_sha256", None)
+    if _canonical_hash(canonical_manifest) != manifest_hash:
+        raise ValueError(f"dataset manifest hash is not canonical for {spec.dataset}")
     return {
         "config_hash": _canonical_hash(_config_payload(config)),
         "dataset_manifest_hash": manifest_hash,
@@ -95,7 +101,7 @@ def _expected_metadata(
 def _is_reusable_final(
     path: Path,
     spec: RunSpec,
-    expected: Mapping[str, str] | None,
+    expected: Mapping[str, str],
 ) -> bool:
     if not path.exists():
         return False
@@ -111,7 +117,7 @@ def _is_reusable_final(
         "variant": spec.variant,
         "seed": spec.seed,
     }
-    if expected is None or any(final.get(key) != value for key, value in required.items()):
+    if any(final.get(key) != value for key, value in required.items()):
         raise ValueError(f"completed artifact metadata mismatch for {spec.run_id}")
     if any(final.get(key) != value for key, value in expected.items()):
         raise ValueError(f"completed artifact metadata mismatch for {spec.run_id}")
@@ -272,6 +278,8 @@ def run_gc_matrix(
             status_path=status_path,
             environment=environment,
         )
+        if not _is_reusable_final(final_path, spec, expected):
+            raise ValueError(f"missing completed final artifact after training: {spec.run_id}")
         completed.append(spec.run_id)
     return completed
 
