@@ -1,15 +1,21 @@
 import hashlib
 import json
 import sys
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
 
 from temporal_mamba import run_gc_matrix as gc_runner_module
 from temporal_mamba import summarize_gc as gc_summary_module
-from temporal_mamba.config import GC_MATRIX_VARIANTS
-from temporal_mamba.run_gc_matrix import expand_gc_matrix, run_gc_matrix
+from temporal_mamba.config import GC_MATRIX_VARIANTS, load_experiment_config
+from temporal_mamba.run_gc_matrix import (
+    GC_CONFIG_NAMES,
+    expand_gc_matrix,
+    run_gc_matrix,
+)
 from temporal_mamba.summarize_gc import summarize_gc_matrix
+from temporal_mamba.train import _config_payload
 
 
 def _canonical_hash(value):
@@ -17,8 +23,68 @@ def _canonical_hash(value):
     return hashlib.sha256(canonical).hexdigest()
 
 
+def _effective_config(spec, stage="confirm"):
+    config = load_experiment_config(
+        gc_runner_module.Path("configs") / GC_CONFIG_NAMES[spec.dataset],
+        variant=spec.variant,
+        seed=spec.seed,
+    )
+    if stage == "smoke":
+        config = replace(config, training=replace(config.training, epochs=1))
+    return _config_payload(config)
+
+
 def _manifest(dataset):
-    payload = {"schema_version": 1, "dataset": dataset}
+    if dataset == "generalized_dynamics":
+        payload = {
+            "schema_version": 1,
+            "generator_version": "generalized-dynamics-v1",
+            "data_seed": 20260717,
+            "signal_dim": 6,
+            "seq_len": 128,
+            "formula_families": ["damped", "forced", "switching"],
+            "splits": [
+                "train",
+                "val",
+                "test",
+                "length_256",
+                "length_512",
+                "parameter_ood",
+                "noise_ood",
+            ],
+            "sizes": {name: 1 for name in ("train", "val", "test", "length_256", "length_512", "parameter_ood", "noise_ood")},
+            "shapes": {"signal": [None, 6]},
+            "ranges": {"id": {}},
+            "normalization": {"source_split": "train", "mean": [0.0], "std": [1.0]},
+            "files": {
+                name: {"name": f"{name}.npz", "sha256": name}
+                for name in (
+                    "train",
+                    "val",
+                    "test",
+                    "length_256",
+                    "length_512",
+                    "parameter_ood",
+                    "noise_ood",
+                )
+            },
+            "label_counts": {},
+            "cross_split_duplicates": 0,
+            "cross_split_sample_id_duplicates": 0,
+        }
+    else:
+        payload = {
+            "schema_version": 1,
+            "data_seed": 20260716,
+            "source_manifest_sha256": "source-sha256",
+            "signal_names": [f"signal_{index}" for index in range(9)],
+            "official_shapes": {"train": [1, 128, 9], "test": [1, 128, 9]},
+            "validation_subjects": [1],
+            "subjects": {"train": [2], "val": [1], "test": [3]},
+            "normalization_mean": [0.0] * 9,
+            "normalization_std": [1.0] * 9,
+            "files": {name: {"name": f"{name}.npz", "sha256": name} for name in ("train", "val", "test")},
+        }
     return {**payload, "manifest_sha256": _canonical_hash(payload)}
 
 
@@ -76,6 +142,32 @@ def test_gc_summary_cli_requires_stage(tmp_path, monkeypatch):
     )
     with pytest.raises(SystemExit):
         gc_summary_module._parse_args()
+
+
+def test_gc_summary_main_success_path(tmp_path, monkeypatch, capsys):
+    artifact_root = tmp_path / "confirm"
+    _write_confirm_matrix(
+        artifact_root,
+        synthetic_effects=(0.030, 0.026, 0.034, 0.028, 0.032),
+        uci_effects=(0.015, 0.013, 0.017, 0.014, 0.016),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "summarize_gc",
+            "--stage",
+            "confirm",
+            "--artifact-root",
+            str(artifact_root),
+        ],
+    )
+
+    gc_summary_module.main()
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["completed_jobs"] == 70
+    assert output["decision"] == "supported"
 
 
 def test_gc_matrix_uses_only_gc_configs_and_variants():
@@ -276,20 +368,18 @@ def _write_gc_final(root, spec, *, scores, commit="commit-a", manifest=None):
     }
     manifest = manifest or _manifest(spec.dataset)
     manifest_hash = manifest["manifest_sha256"]
-    config = {
-        "dataset": spec.dataset,
-        "variant": spec.variant,
-        "seed": spec.seed,
-        "generalized_coordinates": True,
-        "gc_order": {
-            "gc_k1": 1,
-            "gc_k2": 2,
-            "gc_k3": 3,
-            "gc_k3_shuffled": 3,
-            "gc_k3_noise": 3,
-        }.get(spec.variant, 0),
-    }
+    config = _effective_config(spec)
     config_hash = _canonical_hash(config)
+    gc_order = {
+        "gc_k1": 1,
+        "gc_k2": 2,
+        "gc_k3": 3,
+        "gc_k3_shuffled": 3,
+        "gc_k3_noise": 3,
+    }.get(spec.variant, 0)
+    order_values = {
+        f"order_{order}": 0.0 if order < gc_order else None for order in range(3)
+    }
     final = {
         "schema_version": 3,
         "status": "complete",
@@ -300,16 +390,19 @@ def _write_gc_final(root, spec, *, scores, commit="commit-a", manifest=None):
         "config_hash": config_hash,
         "dataset_manifest_hash": manifest_hash,
         "git_commit": commit,
-        "gc_order": {
-            "gc_k1": 1,
-            "gc_k2": 2,
-            "gc_k3": 3,
-            "gc_k3_shuffled": 3,
-            "gc_k3_noise": 3,
-        }.get(spec.variant, 0),
+        "selection_split": "val",
+        "best_epoch": 0,
+        "best_metric": 0.70,
+        "completed_epochs": config["training"]["epochs"],
+        "global_step": 1,
+        "pass_count": 1 if spec.variant == "vanilla" else 2,
+        "uses_error": spec.variant not in {"vanilla", "two_pass"},
+        "uses_aux": spec.variant not in {"vanilla", "two_pass"},
+        "time_transform": "none",
+        "gc_order": gc_order,
         "parameter_count": 1000 if spec.dataset == "generalized_dynamics" else 2000,
-        "per_order_auxiliary_losses": {"order_0": 0.0, "order_1": 0.0, "order_2": 0.0},
-        "per_order_error_rms": {"order_0": 0.0, "order_1": 0.0, "order_2": 0.0},
+        "per_order_auxiliary_losses": order_values,
+        "per_order_error_rms": order_values,
         "dt_diagnostics": {
             view: {
                 "dt_min": metrics[view]["diagnostics"]["dt_min"],
@@ -322,7 +415,19 @@ def _write_gc_final(root, spec, *, scores, commit="commit-a", manifest=None):
             "config_sha256": config_hash,
             "manifest_sha256": manifest_hash,
         },
-        "environment": {"git_commit": commit, "cuda_available": True},
+        "environment": {
+            "python": "3.10",
+            "platform": "test",
+            "torch": "test",
+            "numpy": "test",
+            "cuda_available": True,
+            "cuda_version": "test",
+            "device": "cuda",
+            "device_name": "test",
+            "git_commit": commit,
+            "amp": False,
+            "cpu_affinity": [0],
+        },
         "metrics": metrics,
     }
     run_dir = root / spec.run_id
@@ -515,6 +620,30 @@ def test_gc_summary_recomputes_config_sidecar_hash(tmp_path):
         summarize_gc_matrix(tmp_path, "confirm")
 
 
+def test_gc_summary_rejects_uniform_self_consistent_config_tampering(tmp_path):
+    _write_confirm_matrix(
+        tmp_path,
+        synthetic_effects=(0.030, 0.026, 0.034, 0.028, 0.032),
+        uci_effects=(0.015, 0.013, 0.017, 0.014, 0.016),
+    )
+    for spec in expand_gc_matrix("confirm"):
+        run_dir = tmp_path / spec.run_id
+        config_path = run_dir / "config.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config["seed"] = spec.seed + 1
+        config["training"]["lr"] = 0.25
+        config_hash = _canonical_hash(config)
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+        final_path = run_dir / "final.json"
+        final = json.loads(final_path.read_text(encoding="utf-8"))
+        final["config_hash"] = config_hash
+        final["hashes"]["config_sha256"] = config_hash
+        final_path.write_text(json.dumps(final), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="preregistered config"):
+        summarize_gc_matrix(tmp_path, "confirm")
+
+
 def test_gc_summary_rejects_uniformly_forged_manifest_claims(tmp_path):
     _write_confirm_matrix(
         tmp_path,
@@ -535,3 +664,65 @@ def test_gc_summary_rejects_uniformly_forged_manifest_claims(tmp_path):
 
     with pytest.raises(ValueError, match="manifest.*canonical"):
         summarize_gc_matrix(tmp_path, "confirm")
+
+
+def test_gc_summary_rejects_uniform_self_consistent_manifest_tampering(tmp_path):
+    _write_confirm_matrix(
+        tmp_path,
+        synthetic_effects=(0.030, 0.026, 0.034, 0.028, 0.032),
+        uci_effects=(0.015, 0.013, 0.017, 0.014, 0.016),
+    )
+    for spec in expand_gc_matrix("confirm"):
+        run_dir = tmp_path / spec.run_id
+        manifest_path = run_dir / "dataset_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["data_seed"] += 1
+        payload = dict(manifest)
+        payload.pop("manifest_sha256")
+        manifest_hash = _canonical_hash(payload)
+        manifest["manifest_sha256"] = manifest_hash
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        final_path = run_dir / "final.json"
+        final = json.loads(final_path.read_text(encoding="utf-8"))
+        final["dataset_manifest_hash"] = manifest_hash
+        final["hashes"]["manifest_sha256"] = manifest_hash
+        final_path.write_text(json.dumps(final), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="data_seed"):
+        summarize_gc_matrix(tmp_path, "confirm")
+
+
+@pytest.mark.parametrize(
+    ("dataset", "field"),
+    (
+        ("generalized_dynamics", "generator_version"),
+        ("uci_har", "source_manifest_sha256"),
+    ),
+)
+def test_gc_summary_requires_dataset_specific_manifest_structure(
+    tmp_path, dataset, field
+):
+    spec = next(spec for spec in expand_gc_matrix("confirm") if spec.dataset == dataset)
+    _write_gc_final(tmp_path, spec, scores={"id": 0.70, "ood": 0.70})
+    run_dir = tmp_path / spec.run_id
+    manifest_path = run_dir / "dataset_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest.pop(field)
+    payload = dict(manifest)
+    payload.pop("manifest_sha256")
+    manifest_hash = _canonical_hash(payload)
+    manifest["manifest_sha256"] = manifest_hash
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    final_path = run_dir / "final.json"
+    final = json.loads(final_path.read_text(encoding="utf-8"))
+    final["dataset_manifest_hash"] = manifest_hash
+    final["hashes"]["manifest_sha256"] = manifest_hash
+    final_path.write_text(json.dumps(final), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=field.replace("source_manifest_sha256", "source")):
+        gc_summary_module._validate_sidecars(
+            tmp_path,
+            spec,
+            final,
+            "confirm",
+        )

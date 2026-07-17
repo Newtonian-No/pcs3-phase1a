@@ -6,14 +6,21 @@ import argparse
 import json
 import math
 import statistics
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from .config import GC_MATRIX_VARIANTS
-from .run_gc_matrix import GC_DATASETS, GC_STAGES, Stage, expand_gc_matrix
+from .config import GC_MATRIX_VARIANTS, load_experiment_config
+from .run_gc_matrix import (
+    GC_CONFIG_NAMES,
+    GC_DATASETS,
+    GC_STAGES,
+    Stage,
+    expand_gc_matrix,
+)
 from .run_matrix import RunSpec
 from .summarize import _atomic_text, _check_numeric_tree
-from .train import _canonical_hash
+from .train import _canonical_hash, _config_payload
 
 
 _T95_N5 = 2.776445105
@@ -37,6 +44,18 @@ _GC_ORDERS = {
     "gc_k3_shuffled": 3,
     "gc_k3_noise": 3,
 }
+_CONFIG_ROOT = Path(__file__).resolve().parents[1] / "configs"
+_GENERALIZED_SPLITS = {
+    "train",
+    "val",
+    "test",
+    "length_256",
+    "length_512",
+    "parameter_ood",
+    "noise_ood",
+}
+_UCI_SPLITS = {"train", "val", "test"}
+_UCI_OFFICIAL_SPLITS = {"train", "test"}
 
 
 def _load_final(root: Path, spec: RunSpec) -> dict[str, Any]:
@@ -180,10 +199,27 @@ def _validate_sidecars(
     root: Path,
     spec: RunSpec,
     final: Mapping[str, Any],
+    stage: Stage,
 ) -> tuple[str, str]:
     run_dir = root / spec.run_id
     config = _load_sidecar(run_dir / "config.json", spec)
+    expected_config = load_experiment_config(
+        _CONFIG_ROOT / GC_CONFIG_NAMES[spec.dataset],
+        variant=spec.variant,
+        seed=spec.seed,
+    )
+    if stage == "smoke":
+        expected_config = replace(
+            expected_config,
+            training=replace(expected_config.training, epochs=1),
+        )
+    expected_config_payload = _config_payload(expected_config)
+    if config != expected_config_payload:
+        raise ValueError(f"{spec.run_id} sidecar does not match preregistered config")
     config_hash = _canonical_hash(config)
+    expected_config_hash = _canonical_hash(expected_config_payload)
+    if config_hash != expected_config_hash:
+        raise ValueError(f"{spec.run_id} preregistered config hash mismatch")
     if config_hash != final["config_hash"]:
         raise ValueError(f"{spec.run_id} config sidecar hash mismatch")
     if config_hash != final["hashes"]["config_sha256"]:
@@ -199,6 +235,7 @@ def _validate_sidecars(
     actual_manifest_hash = _canonical_hash(canonical_manifest)
     if claimed_manifest_hash != actual_manifest_hash:
         raise ValueError(f"{spec.run_id} manifest claim does not match canonical contents")
+    _validate_manifest_contract(manifest, spec, expected_config_payload)
     if claimed_manifest_hash != final["dataset_manifest_hash"]:
         raise ValueError(f"{spec.run_id} manifest sidecar hash mismatch")
     if claimed_manifest_hash != final["hashes"]["manifest_sha256"]:
@@ -206,9 +243,53 @@ def _validate_sidecars(
     return config_hash, claimed_manifest_hash
 
 
+def _validate_manifest_contract(
+    manifest: Mapping[str, Any],
+    spec: RunSpec,
+    expected_config: Mapping[str, Any],
+) -> None:
+    schema_version = manifest.get("schema_version")
+    if isinstance(schema_version, bool) or schema_version != 1:
+        raise ValueError(f"{spec.run_id} manifest schema_version must be 1")
+    data_seed = manifest.get("data_seed")
+    if isinstance(data_seed, bool) or data_seed != expected_config["data_seed"]:
+        raise ValueError(f"{spec.run_id} manifest data_seed mismatch")
+    files = manifest.get("files")
+    if not isinstance(files, Mapping):
+        raise ValueError(f"{spec.run_id} manifest files must be an object")
+    if spec.dataset == "generalized_dynamics":
+        generator_version = manifest.get("generator_version")
+        if not isinstance(generator_version, str) or not generator_version:
+            raise ValueError(f"{spec.run_id} generalized manifest generator_version missing")
+        splits = manifest.get("splits")
+        sizes = manifest.get("sizes")
+        if not isinstance(splits, list) or set(splits) != _GENERALIZED_SPLITS:
+            raise ValueError(f"{spec.run_id} generalized manifest splits mismatch")
+        if not isinstance(sizes, Mapping) or set(sizes) != _GENERALIZED_SPLITS:
+            raise ValueError(f"{spec.run_id} generalized manifest sizes mismatch")
+        if set(files) != _GENERALIZED_SPLITS:
+            raise ValueError(f"{spec.run_id} generalized manifest files mismatch")
+        return
+    source_hash = manifest.get("source_manifest_sha256")
+    if not isinstance(source_hash, str) or not source_hash:
+        raise ValueError(f"{spec.run_id} UCI manifest source hash missing")
+    if set(files) != _UCI_SPLITS:
+        raise ValueError(f"{spec.run_id} UCI manifest files mismatch")
+    official_shapes = manifest.get("official_shapes")
+    if not isinstance(official_shapes, Mapping) or set(official_shapes) != _UCI_OFFICIAL_SPLITS:
+        raise ValueError(f"{spec.run_id} UCI manifest official_shapes mismatch")
+    subjects = manifest.get("subjects")
+    if not isinstance(subjects, Mapping) or set(subjects) != _UCI_SPLITS:
+        raise ValueError(f"{spec.run_id} UCI manifest subjects mismatch")
+    signal_names = manifest.get("signal_names")
+    if not isinstance(signal_names, list) or len(signal_names) != expected_config["signal_dim"]:
+        raise ValueError(f"{spec.run_id} UCI manifest signal_names mismatch")
+
+
 def _validate_matrix(
     root: Path,
     specs: Sequence[RunSpec],
+    stage: Stage,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     expected_ids = {spec.run_id for spec in specs}
     discovered_ids = {
@@ -228,7 +309,7 @@ def _validate_matrix(
     for spec in specs:
         final = _load_final(root, spec)
         _validate_final(final, spec)
-        config_hash, manifest_hash = _validate_sidecars(root, spec, final)
+        config_hash, manifest_hash = _validate_sidecars(root, spec, final, stage)
         commits.add(str(final["git_commit"]))
         config_hashes[spec.dataset].add(config_hash)
         manifests[spec.dataset].add(manifest_hash)
@@ -493,7 +574,7 @@ def summarize_gc_matrix(artifact_root: str | Path, stage: Stage) -> dict[str, ob
 
     specs = expand_gc_matrix(stage)
     root = Path(artifact_root)
-    validation, finals = _validate_matrix(root, specs)
+    validation, finals = _validate_matrix(root, specs, stage)
     domains = {
         dataset: _domain_summary(
             dataset,
