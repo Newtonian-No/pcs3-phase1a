@@ -3,6 +3,7 @@ import hashlib
 import numpy as np
 import pytest
 
+from temporal_mamba.datasets import generalized_dynamics as dynamics
 from temporal_mamba.datasets.generalized_dynamics import (
     DYNAMICS_SPLITS,
     GeneralizedDynamicsDataset,
@@ -16,8 +17,7 @@ def _sizes(size: int) -> dict[str, int]:
 
 def _content_fingerprint(item: dict[str, object]) -> str:
     digest = hashlib.sha256()
-    for name in ("signal", "coordinate_targets"):
-        digest.update(np.ascontiguousarray(item[name]).tobytes())
+    digest.update(np.ascontiguousarray(item["coordinate_targets"][:, 0, :]).tobytes())
     digest.update(np.asarray([item["target"]], dtype="<i8").tobytes())
     return digest.hexdigest()
 
@@ -61,6 +61,108 @@ def test_analytic_coordinates_satisfy_signal_contract(tmp_path):
     np.testing.assert_array_equal(item["coordinate_mask"], np.ones((128, 3, 1), dtype=np.float32))
     assert item["target"] == item["base_target"]
     assert item["formula_family"] in {"damped", "forced", "switching"}
+
+
+def test_all_formula_families_have_exact_first_and_second_derivatives():
+    t = np.asarray([0.0, 0.2, 0.7, 1.1], dtype=np.float64)
+    amp, phase = 1.3, 0.4
+
+    damping, omega = 0.2, 2.1
+    angle = omega * t + phase
+    decay = np.exp(-damping * t)
+    damped_x = amp * decay * np.cos(angle)
+    damped_dx = amp * decay * (-damping * np.cos(angle) - omega * np.sin(angle))
+    damped_ddx = -2 * damping * damped_dx - (damping**2 + omega**2) * damped_x
+    actual = dynamics.damped(t, amp, phase, damping, omega)
+    for value, expected in zip(actual, (damped_x, damped_dx, damped_ddx)):
+        np.testing.assert_allclose(value, expected, rtol=1e-13, atol=1e-13)
+
+    drive_omega = 4.3
+    forced_x = amp * np.cos(omega * t + phase) + 0.5 * amp * np.cos(drive_omega * t - phase)
+    forced_dx = (
+        -amp * omega * np.sin(omega * t + phase)
+        - 0.5 * amp * drive_omega * np.sin(drive_omega * t - phase)
+    )
+    forced_ddx = (
+        -amp * omega**2 * np.cos(omega * t + phase)
+        - 0.5 * amp * drive_omega**2 * np.cos(drive_omega * t - phase)
+    )
+    actual = dynamics.forced(t, amp, phase, omega, drive_omega)
+    for value, expected in zip(actual, (forced_x, forced_dx, forced_ddx)):
+        np.testing.assert_allclose(value, expected, rtol=1e-13, atol=1e-13)
+
+    omega_before, omega_after, switch_index = 1.5, 3.2, 2
+    switch_angle = omega_before * t[switch_index] + phase
+    switching_angle = np.concatenate(
+        [
+            omega_before * t[:switch_index] + phase,
+            switch_angle + omega_after * (t[switch_index:] - t[switch_index]),
+        ]
+    )
+    switching_omega = np.asarray([omega_before, omega_before, omega_after, omega_after])
+    switching_x = amp * np.cos(switching_angle)
+    switching_dx = -amp * switching_omega * np.sin(switching_angle)
+    switching_ddx = -amp * switching_omega**2 * np.cos(switching_angle)
+    actual = dynamics.switching(t, amp, phase, omega_before, omega_after, switch_index)
+    for value, expected in zip(actual, (switching_x, switching_dx, switching_ddx)):
+        np.testing.assert_allclose(value, expected, rtol=1e-13, atol=1e-13)
+
+
+def test_coordinate_normalization_uses_train_signal_std_for_every_order():
+    raw = np.asarray(
+        [
+            [
+                [[12.0, 6.0], [4.0, 8.0], [-8.0, 12.0]],
+                [[8.0, -6.0], [2.0, -4.0], [6.0, 20.0]],
+            ]
+        ],
+        dtype=np.float64,
+    )
+    expected = np.asarray(
+        [
+            [
+                [[1.0, 2.0], [2.0, 2.0], [-4.0, 3.0]],
+                [[-1.0, -1.0], [1.0, -1.0], [3.0, 5.0]],
+            ]
+        ],
+        dtype=np.float64,
+    )
+
+    normalized = dynamics._normalize_coordinates(
+        raw,
+        mean=np.asarray([10.0, -2.0]),
+        std=np.asarray([2.0, 4.0]),
+    )
+
+    np.testing.assert_array_equal(normalized, expected)
+    np.testing.assert_array_equal(raw[0, 0, 1], [4.0, 8.0])
+
+
+def test_noise_cannot_hide_clean_trajectory_overlap(monkeypatch, tmp_path):
+    original_generate = dynamics._generate_raw_split
+    generated_test: dict[str, np.ndarray] = {}
+
+    def generate_with_leak(split, size, signal_dim, seq_len, rng):
+        if split == "noise_ood":
+            return {name: value.copy() for name, value in generated_test.items()}
+        generated = original_generate(split, size, signal_dim, seq_len, rng)
+        if split == "test":
+            generated_test.update({name: value.copy() for name, value in generated.items()})
+        return generated
+
+    monkeypatch.setattr(dynamics, "_generate_raw_split", generate_with_leak)
+
+    with pytest.raises(RuntimeError, match="content fingerprints overlap"):
+        build_generalized_dynamics_manifest(tmp_path, 20260717, _sizes(3), signal_dim=1)
+
+
+def test_fingerprint_identity_is_clean_order_zero_trajectory_plus_label():
+    coordinates_a = np.zeros((8, 3, 2), dtype=np.float32)
+    coordinates_b = coordinates_a.copy()
+    coordinates_b[:, 1:, :] = 17.0
+
+    assert dynamics._content_fingerprint(coordinates_a, 2) == dynamics._content_fingerprint(coordinates_b, 2)
+    assert dynamics._content_fingerprint(coordinates_a, 1) != dynamics._content_fingerprint(coordinates_b, 2)
 
 
 def test_lengths_training_normalization_and_noise_only_observation(tmp_path):

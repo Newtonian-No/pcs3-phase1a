@@ -196,10 +196,9 @@ def _normalize_coordinates(
     return normalized
 
 
-def _content_fingerprint(signal: np.ndarray, coordinates: np.ndarray, target: int) -> str:
+def _content_fingerprint(coordinates: np.ndarray, target: int) -> str:
     digest = hashlib.sha256()
-    digest.update(np.ascontiguousarray(signal).tobytes())
-    digest.update(np.ascontiguousarray(coordinates).tobytes())
+    digest.update(np.ascontiguousarray(coordinates[:, 0, :]).tobytes())
     digest.update(np.asarray([target], dtype="<i8").tobytes())
     return digest.hexdigest()
 
@@ -276,7 +275,7 @@ def build_generalized_dynamics_manifest(
         sample_ids = np.asarray([f"{split}-{index:06d}" for index in range(sizes[split])])
         fingerprints = np.asarray(
             [
-                _content_fingerprint(signal[index], coordinates[index], int(raw["family"][index]))
+                _content_fingerprint(coordinates[index], int(raw["family"][index]))
                 for index in range(sizes[split])
             ]
         )
