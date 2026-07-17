@@ -18,10 +18,16 @@ from typing import Any, Mapping
 import numpy as np
 import torch
 from torch import Tensor
+from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset, Subset
 
 from .checkpoint import load_checkpoint, save_checkpoint
 from .config import ExperimentConfig, load_experiment_config
+from .datasets.generalized_dynamics import (
+    DYNAMICS_SPLITS,
+    GeneralizedDynamicsDataset,
+    build_generalized_dynamics_manifest,
+)
 from .datasets.temporal_logic import TemporalLogicDataset, build_temporal_logic_manifest
 from .datasets.temporal_logic_v2 import (
     V2_SPLITS,
@@ -63,6 +69,8 @@ class BatchTensors:
     signal: Tensor
     target: Tensor
     query: Tensor | None
+    coordinate_targets: Tensor | None = None
+    coordinate_mask: Tensor | None = None
 
 
 def build_datasets(config: ExperimentConfig, data_root: str | Path) -> dict[str, Dataset]:
@@ -111,9 +119,39 @@ def build_datasets(config: ExperimentConfig, data_root: str | Path) -> dict[str,
     if config.dataset == "uci_har":
         if not (data_root / "manifest.json").exists():
             prepare_uci_har(data_root, data_seed=config.data_seed)
-        return {
+        datasets = {
             split: UCIHARDataset(data_root, split, transform=config.time_transform)
             for split in ("train", "val", "test")
+        }
+        if config.uses_gc:
+            datasets.update(
+                {
+                    "prefix50": UCIHARDataset(data_root, "test", transform="prefix50"),
+                    "noise_025": UCIHARDataset(data_root, "test", transform="noise_025"),
+                }
+            )
+        return datasets
+    if config.dataset == "generalized_dynamics":
+        manifest_path = data_root / "manifest.json"
+        if not manifest_path.exists():
+            build_generalized_dynamics_manifest(
+                data_root,
+                config.data_seed,
+                {
+                    "train": config.data.train_size,
+                    "val": config.data.val_size,
+                    "test": config.data.test_size,
+                    "length_256": config.data.long_test_size,
+                    "length_512": config.data.long_test_size,
+                    "parameter_ood": config.data.long_test_size,
+                    "noise_ood": config.data.long_test_size,
+                },
+                signal_dim=config.signal_dim,
+                seq_len=config.seq_len,
+            )
+        return {
+            split: GeneralizedDynamicsDataset(data_root, split)
+            for split in DYNAMICS_SPLITS
         }
     raise ValueError(f"unknown dataset: {config.dataset}")
 
@@ -151,7 +189,48 @@ def _move_batch(batch: Mapping[str, Any], device: torch.device) -> BatchTensors:
         if isinstance(raw_query, Tensor)
         else None
     )
-    return BatchTensors(features=features, signal=signal, target=target, query=query)
+    raw_coordinate_targets = batch.get("coordinate_targets")
+    coordinate_targets = (
+        raw_coordinate_targets.to(
+            device=device, dtype=torch.float32, non_blocking=True
+        )
+        if isinstance(raw_coordinate_targets, Tensor)
+        else None
+    )
+    raw_coordinate_mask = batch.get("coordinate_mask")
+    if isinstance(raw_coordinate_mask, Tensor) and (
+        raw_coordinate_mask.is_floating_point() or raw_coordinate_mask.is_complex()
+    ):
+        assert_finite_tensor("coordinate_mask", raw_coordinate_mask)
+    coordinate_mask = (
+        raw_coordinate_mask.to(device=device, dtype=torch.bool, non_blocking=True)
+        if isinstance(raw_coordinate_mask, Tensor)
+        else None
+    )
+    if (coordinate_targets is None) != (coordinate_mask is None):
+        raise ValueError("coordinate_targets and coordinate_mask must be provided together")
+    if coordinate_targets is not None and coordinate_mask is not None:
+        expected_targets = (*signal.shape[:2], 3, signal.shape[-1])
+        if tuple(coordinate_targets.shape) != expected_targets:
+            raise ValueError(
+                f"coordinate_targets must have shape {expected_targets}, "
+                f"got {tuple(coordinate_targets.shape)}"
+            )
+        expected_mask = (*signal.shape[:2], 3, 1)
+        if tuple(coordinate_mask.shape) != expected_mask:
+            raise ValueError(
+                f"coordinate_mask must have shape {expected_mask}, "
+                f"got {tuple(coordinate_mask.shape)}"
+            )
+        assert_finite_tensor("coordinate_targets", coordinate_targets)
+    return BatchTensors(
+        features=features,
+        signal=signal,
+        target=target,
+        query=query,
+        coordinate_targets=coordinate_targets,
+        coordinate_mask=coordinate_mask,
+    )
 
 
 def _predictions(logits: Tensor, dataset: str) -> Tensor:
@@ -160,10 +239,16 @@ def _predictions(logits: Tensor, dataset: str) -> Tensor:
     return logits.argmax(dim=-1)
 
 
-def _classification_metrics(dataset: str, target: np.ndarray, predicted: np.ndarray) -> dict[str, object]:
+def _classification_metrics(
+    dataset: str,
+    target: np.ndarray,
+    predicted: np.ndarray,
+    *,
+    num_classes: int,
+) -> dict[str, object]:
     if dataset in BINARY_DATASETS:
         return binary_metrics(target, predicted)
-    return multiclass_metrics(target, predicted, num_classes=6)
+    return multiclass_metrics(target, predicted, num_classes=num_classes)
 
 
 def _guard_output(output) -> None:
@@ -172,12 +257,68 @@ def _guard_output(output) -> None:
         assert_finite_tensor("position_error", output.position_error)
     if output.velocity_error is not None:
         assert_finite_tensor("velocity_error", output.velocity_error)
+    if output.coordinate_errors is not None:
+        if output.coordinate_errors.ndim != 3 or output.coordinate_errors.shape[-1] % 3:
+            raise ValueError("coordinate_errors must be B x T x (3 * signal_dim)")
+        assert_finite_tensor("coordinate_errors", output.coordinate_errors)
+        if output.coordinate_mask is None:
+            raise ValueError("coordinate_errors require coordinate_mask")
+    if output.coordinate_mask is not None:
+        if output.coordinate_errors is None:
+            raise ValueError("coordinate_mask requires coordinate_errors")
+        if (
+            output.coordinate_mask.ndim != 4
+            or tuple(output.coordinate_mask.shape[:2])
+            != tuple(output.coordinate_errors.shape[:2])
+            or tuple(output.coordinate_mask.shape[2:]) != (3, 1)
+        ):
+            raise ValueError("coordinate_mask must be B x T x 3 x 1")
+        if output.coordinate_mask.dtype != torch.bool:
+            raise ValueError("coordinate_mask must be boolean")
     for name, value in output.diagnostics.items():
         if isinstance(value, Tensor):
             assert_finite_tensor(f"diagnostics.{name}", value)
     finite = output.diagnostics.get("finite")
     if isinstance(finite, Tensor) and not bool(finite):
         raise NumericalFailure("diagnostics.finite", observed_min=None, observed_max=None)
+
+
+def _coordinate_statistics(output) -> tuple[list[float], list[float], list[int]]:
+    squared = [0.0, 0.0, 0.0]
+    auxiliary = [0.0, 0.0, 0.0]
+    counts = [0, 0, 0]
+    if output.coordinate_errors is None or output.coordinate_mask is None:
+        return squared, auxiliary, counts
+    signal_dim = output.coordinate_errors.shape[-1] // 3
+    shaped = output.coordinate_errors.detach().float().reshape(
+        *output.coordinate_errors.shape[:2], 3, signal_dim
+    )
+    mask = output.coordinate_mask.to(device=shaped.device, dtype=torch.bool).expand_as(shaped)
+    smooth = F.smooth_l1_loss(shaped, torch.zeros_like(shaped), reduction="none")
+    for order in range(3):
+        valid = mask[:, :, order]
+        counts[order] = int(valid.sum().item())
+        squared[order] = float(torch.where(valid, shaped[:, :, order].square(), 0.0).sum())
+        auxiliary[order] = float(torch.where(valid, smooth[:, :, order], 0.0).sum())
+    return squared, auxiliary, counts
+
+
+def _finalize_coordinate_statistics(
+    squared: list[float],
+    auxiliary: list[float],
+    counts: list[int],
+) -> tuple[dict[str, float], dict[str, float]]:
+    error_rms = {
+        f"order_{order}": math.sqrt(squared[order] / counts[order])
+        if counts[order]
+        else 0.0
+        for order in range(3)
+    }
+    auxiliary_losses = {
+        f"order_{order}": auxiliary[order] / counts[order] if counts[order] else 0.0
+        for order in range(3)
+    }
+    return error_rms, auxiliary_losses
 
 
 def train_epoch(
@@ -202,19 +343,36 @@ def train_epoch(
     diagnostic_max = -math.inf
     last_output = None
     last_weight = 0.0
+    coordinate_squared = [0.0, 0.0, 0.0]
+    coordinate_auxiliary = [0.0, 0.0, 0.0]
+    coordinate_counts = [0, 0, 0]
 
+    last_control_seed: int | None = None
     for batch in loader:
         moved = _move_batch(batch, device)
         features, signal, target = moved.features, moved.signal, moved.target
         optimizer.zero_grad(set_to_none=True)
-        output = model(
-            features,
-            signal,
-            variant=config.variant,
-            query=moved.query,
-            return_diagnostics=True,
-        )
+        error_control_seed = config.seed * 1_000_003 + global_step
+        forward_kwargs: dict[str, Any] = {
+            "variant": config.variant,
+            "query": moved.query,
+            "return_diagnostics": True,
+        }
+        if config.uses_gc:
+            forward_kwargs.update(
+                {
+                    "coordinate_targets": moved.coordinate_targets,
+                    "coordinate_mask": moved.coordinate_mask,
+                    "error_control_seed": error_control_seed,
+                }
+            )
+        output = model(features, signal, **forward_kwargs)
         _guard_output(output)
+        batch_squared, batch_auxiliary, batch_counts = _coordinate_statistics(output)
+        for order in range(3):
+            coordinate_squared[order] += batch_squared[order]
+            coordinate_auxiliary[order] += batch_auxiliary[order]
+            coordinate_counts[order] += batch_counts[order]
         breakdown = compute_total_loss(
             output,
             target,
@@ -244,6 +402,7 @@ def train_epoch(
         diagnostic_min = min(diagnostic_min, float(output.diagnostics["dt_min"].detach()))
         diagnostic_max = max(diagnostic_max, float(output.diagnostics["dt_max"].detach()))
         global_step += 1
+        last_control_seed = error_control_seed
         last_output = output
         last_weight = breakdown.aux_weight
 
@@ -253,6 +412,7 @@ def train_epoch(
         config.dataset,
         np.concatenate(targets).astype(np.int64),
         np.concatenate(predictions).astype(np.int64),
+        num_classes=config.num_outputs,
     )
     metrics.update(
         {
@@ -268,6 +428,16 @@ def train_epoch(
             "finite": True,
         }
     )
+    if config.uses_gc:
+        per_order_rms, per_order_auxiliary = _finalize_coordinate_statistics(
+            coordinate_squared, coordinate_auxiliary, coordinate_counts
+        )
+        metrics["diagnostics"] = {
+            "error_control_seed_formula": "config.seed * 1_000_003 + global_step",
+            "error_control_seed": last_control_seed,
+            "per_order_error_rms": per_order_rms,
+            "per_order_auxiliary_losses": per_order_auxiliary,
+        }
     return metrics
 
 
@@ -292,19 +462,37 @@ def evaluate(
     output_rms = 0.0
     output_max = 0.0
     finite = True
+    coordinate_squared = [0.0, 0.0, 0.0]
+    coordinate_auxiliary = [0.0, 0.0, 0.0]
+    coordinate_counts = [0, 0, 0]
 
     with torch.no_grad():
-        for batch in loader:
+        last_control_seed: int | None = None
+        for batch_index, batch in enumerate(loader):
             moved = _move_batch(batch, device)
             features, signal, target = moved.features, moved.signal, moved.target
-            output = model(
-                features,
-                signal,
-                variant=config.variant,
-                query=moved.query,
-                return_diagnostics=True,
-            )
+            error_control_seed = config.seed * 1_000_003 + batch_index
+            forward_kwargs: dict[str, Any] = {
+                "variant": config.variant,
+                "query": moved.query,
+                "return_diagnostics": True,
+            }
+            if config.uses_gc:
+                forward_kwargs.update(
+                    {
+                        "coordinate_targets": moved.coordinate_targets,
+                        "coordinate_mask": moved.coordinate_mask,
+                        "error_control_seed": error_control_seed,
+                    }
+                )
+            output = model(features, signal, **forward_kwargs)
+            last_control_seed = error_control_seed
             _guard_output(output)
+            batch_squared, batch_auxiliary, batch_counts = _coordinate_statistics(output)
+            for order in range(3):
+                coordinate_squared[order] += batch_squared[order]
+                coordinate_auxiliary[order] += batch_auxiliary[order]
+                coordinate_counts[order] += batch_counts[order]
             task_loss = compute_total_loss(
                 output,
                 target,
@@ -341,12 +529,18 @@ def evaluate(
     target_array = np.concatenate(targets).astype(np.int64)
     base_array = np.concatenate(base_targets).astype(np.int64)
     predicted_array = np.concatenate(predictions).astype(np.int64)
-    metrics = _classification_metrics(config.dataset, target_array, predicted_array)
+    metrics = _classification_metrics(
+        config.dataset,
+        target_array,
+        predicted_array,
+        num_classes=config.num_outputs,
+    )
     metrics["loss"] = total_loss / sample_count
     metrics["frozen_label_metrics"] = _classification_metrics(
         config.dataset,
         base_array,
         predicted_array,
+        num_classes=config.num_outputs,
     )
     per_family: dict[str, dict[str, object]] = {}
     if config.dataset in BINARY_DATASETS:
@@ -366,6 +560,18 @@ def evaluate(
         "output_max": output_max,
         "finite": finite,
     }
+    if config.uses_gc:
+        per_order_rms, per_order_auxiliary = _finalize_coordinate_statistics(
+            coordinate_squared, coordinate_auxiliary, coordinate_counts
+        )
+        metrics["diagnostics"].update(
+            {
+                "error_control_seed_formula": "config.seed * 1_000_003 + batch_index",
+                "error_control_seed": last_control_seed,
+                "per_order_error_rms": per_order_rms,
+                "per_order_auxiliary_losses": per_order_auxiliary,
+            }
+        )
     return metrics
 
 
@@ -392,13 +598,20 @@ def overfit_tiny_batch(
     final_loss = math.inf
     for step in range(1, max_steps + 1):
         optimizer.zero_grad(set_to_none=True)
-        output = model(
-            features,
-            signal,
-            variant=config.variant,
-            query=moved.query,
-            return_diagnostics=True,
-        )
+        forward_kwargs: dict[str, Any] = {
+            "variant": config.variant,
+            "query": moved.query,
+            "return_diagnostics": True,
+        }
+        if config.uses_gc:
+            forward_kwargs.update(
+                {
+                    "coordinate_targets": moved.coordinate_targets,
+                    "coordinate_mask": moved.coordinate_mask,
+                    "error_control_seed": config.seed * 1_000_003 + step - 1,
+                }
+            )
+        output = model(features, signal, **forward_kwargs)
         _guard_output(output)
         breakdown = compute_total_loss(
             output,
@@ -459,6 +672,8 @@ def _config_payload(config: ExperimentConfig) -> dict[str, Any]:
             "time_transform": config.time_transform,
         }
     )
+    if config.uses_gc:
+        payload.update({"uses_gc": True, "gc_order": config.gc_order})
     return payload
 
 
@@ -567,6 +782,7 @@ def run_training(
         num_outputs=config.num_outputs,
         model_config=config.model,
         input_mode=config.input_mode,
+        generalized_coordinates=config.uses_gc,
     ).to(resolved_device)
 
     run_id = f"{config.dataset}-{variant}-seed{seed}"
@@ -590,8 +806,9 @@ def run_training(
             return existing
         raise ValueError(f"existing final artifact metadata mismatch for {run_id}")
 
+    environment = _environment(resolved_device, git_commit)
     _atomic_json(run_dir / "config.json", config_payload)
-    _atomic_json(run_dir / "environment.json", _environment(resolved_device, git_commit))
+    _atomic_json(run_dir / "environment.json", environment)
     _atomic_json(run_dir / "dataset_manifest.json", data_manifest)
 
     if overfit_only:
@@ -748,7 +965,23 @@ def run_training(
         if "long_test" in loaders
         else None
     )
-    if config.dataset == "temporal_logic_v2":
+    if config.uses_gc:
+        final_metrics = {}
+        for split, loader in loaders.items():
+            if split == "train":
+                continue
+            if split == "val":
+                final_metrics[split] = validation_metrics
+            elif split == "test":
+                final_metrics[split] = test_metrics
+            else:
+                final_metrics[split] = evaluate(
+                    model,
+                    loader,
+                    config,
+                    device=resolved_device,
+                )
+    elif config.dataset == "temporal_logic_v2":
         channel_ood_metrics = evaluate(
             model,
             loaders["channel_ood"],
@@ -809,7 +1042,13 @@ def run_training(
         }
 
     final: dict[str, Any] = {
-        "schema_version": 2 if config.dataset == "temporal_logic_v2" else 1,
+        "schema_version": (
+            3
+            if config.uses_gc
+            else 2
+            if config.dataset == "temporal_logic_v2"
+            else 1
+        ),
         "status": "complete",
         "run_id": run_id,
         "dataset": config.dataset,
@@ -829,6 +1068,31 @@ def run_training(
         "time_transform": config.time_transform,
         "metrics": final_metrics,
     }
+    if config.uses_gc:
+        validation_diagnostics = validation_metrics["diagnostics"]
+        final.update(
+            {
+                "gc_order": config.gc_order,
+                "per_order_auxiliary_losses": validation_diagnostics[
+                    "per_order_auxiliary_losses"
+                ],
+                "per_order_error_rms": validation_diagnostics["per_order_error_rms"],
+                "dt_diagnostics": {
+                    split: {
+                        "dt_min": metrics["diagnostics"]["dt_min"],
+                        "dt_max": metrics["diagnostics"]["dt_max"],
+                    }
+                    for split, metrics in final_metrics.items()
+                },
+                "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
+                "hashes": {
+                    "git_commit": git_commit,
+                    "config_sha256": config_hash,
+                    "manifest_sha256": dataset_hash,
+                },
+                "environment": environment,
+            }
+        )
     _atomic_json(final_path, final)
     return final
 
