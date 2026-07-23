@@ -216,7 +216,9 @@ def _validate_sidecars(
         )
     expected_config_payload = _config_payload(expected_config)
     if config != expected_config_payload:
-        raise ValueError(f"{spec.run_id} sidecar does not match preregistered config")
+        raise ValueError(
+            f"{spec.run_id} config/hash sidecar does not match preregistered config"
+        )
     config_hash = _canonical_hash(config)
     expected_config_hash = _canonical_hash(expected_config_payload)
     if config_hash != expected_config_hash:
